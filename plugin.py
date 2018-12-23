@@ -1,0 +1,387 @@
+# Chromecast
+#
+# Listens for chromecast and home devices and monitors the ones it finds.
+# New ones are added automatically and named using their friendly name
+#
+# Author: Dnpwwo, 2019
+#         Based on plugin authored by Tsjippy
+#
+"""
+<plugin key="ChromeCast" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.0.0">
+    <params>
+         <param field="Port" label="Port for filesharing" width="50px" required="true" default="8000"/>
+        <param field="Mode5" label="Time Out Lost Devices" width="75px">
+            <options>
+                <option label="True" value="True" default="true"/>
+                <option label="False" value="False" />
+            </options>
+        </param>
+        <param field="Mode6" label="Debug" width="150px">
+            <options>
+                <option label="None" value="0"  default="true" />
+                <option label="Python Only" value="2"/>
+                <option label="Basic Debugging" value="62"/>
+                <option label="Basic+Messages" value="126"/>
+                <option label="Connections Only" value="16"/>
+                <option label="Connections+Queue" value="144"/>
+                <option label="All" value="-1"/>
+            </options>
+        </param>
+    </params>
+</plugin>
+"""
+import Domoticz
+import sys,os
+import threading
+import time
+#import logging
+    
+class GoogleDevice:
+    def __init__(self, IP, Port, googleDevice):
+        self.Name = googleDevice.device.friendly_name
+        self.IP = IP
+        self.Port = Port
+        self.UUID = str(googleDevice.device.uuid)
+        self.GoogleDevice = googleDevice
+        self.Ready = False
+        self.Active = False
+        self.Exit = False
+        self.Thread = None
+    
+    class StatusListener:
+        def __init__(self, parent):
+            self.parent = parent
+
+        def new_cast_status(self, status):
+            try:
+                Domoticz.Debug("(StatusListener) Device: "+str(self.parent.GoogleDevice.device))
+                Domoticz.Debug("(StatusListener) Status: "+str(self.parent.GoogleDevice.status))
+                Domoticz.Debug("(StatusListener) MediaC: "+str(self.parent.GoogleDevice.media_controller.status))
+                self.parent.Ready = True
+                self.parent.syncDevices()
+            except Exception as err:
+                Domoticz.Error("new_cast_status: "+str(err))
+
+    class StatusMediaListener:
+        def __init__(self, parent):
+            self.parent = parent
+
+        def new_media_status(self, status):
+            try:
+                Domoticz.Debug("(StatusMediaListener) Device: "+str(self.parent.GoogleDevice.device))
+                Domoticz.Debug("(StatusMediaListener) Status: "+str(self.parent.GoogleDevice.status))
+                Domoticz.Debug("(StatusMediaListener) MediaC: "+str(self.parent.GoogleDevice.media_controller.status))
+                self.parent.Ready = True
+                self.parent.syncDevices()
+            except Exception as err:
+                Domoticz.Error("new_media_status: "+str(err))
+
+    class ConnectionListener:
+        def __init__(self, parent):
+            self.parent = parent
+
+        def new_connection_status(self, new_status):
+            try:
+                Domoticz.Status(self.parent.Name+" is now: "+new_status.status)
+                if (new_status.status == "DISCONNECTED"):
+                    self.parent.Ready = False
+                self.parent.syncDevices()
+            except Exception as err:
+                Domoticz.Error("new_connection_status: "+str(err))
+                Domoticz.Error("new_connection_status: "+str(new_status))
+
+    def syncDevices(self):
+        try:
+            # find first device
+            for Unit in Devices:
+                if (Devices[Unit].DeviceID.find(self.UUID) >= 0):
+                    nValue = Devices[Unit].nValue
+                    sValue = Devices[Unit].sValue
+                    self.Active = self.GoogleDevice.media_controller.status.player_is_playing or self.GoogleDevice.media_controller.status.player_is_paused
+                    liveStream = "[] "
+                    if self.GoogleDevice.media_controller.status.stream_type_is_live: liveStream = "[Live]"
+                    if (self.Ready and (self.GoogleDevice.status != None)):
+                        if (Devices[Unit].DeviceID[-1] == "1"):     # Overall Status
+                            if (not self.Active):
+                                nValue = 9
+                                sValue = 'Screensaver'
+                            elif (self.GoogleDevice.media_controller.status.media_is_generic):
+                                nValue = 4
+                                sValue = liveStream+str(self.GoogleDevice.media_controller.status.title)
+                            elif (self.GoogleDevice.media_controller.status.media_is_tvshow):
+                                nValue = 4
+                                sValue = liveStream+str(self.GoogleDevice.media_controller.status.series_title)+"[S"+ \
+                                            stringOrBlank(self.GoogleDevice.media_controller.status.season)+":E"+ \
+                                            stringOrBlank(self.GoogleDevice.media_controller.status.episode)+"] "+\
+                                            stringOrBlank(self.GoogleDevice.media_controller.status.title)
+                            elif (self.GoogleDevice.media_controller.status.media_is_movie):
+                                nValue = 4
+                                sValue = liveStream+str(self.GoogleDevice.media_controller.status.title)
+                            elif (self.GoogleDevice.media_controller.status.media_is_photo):
+                                nValue = 6
+                                sValue = str(self.GoogleDevice.media_controller.status.title)
+                            elif (self.GoogleDevice.media_controller.status.media_is_musictrack):
+                                nValue = 5
+                                sValue = liveStream+stringOrBlank(self.GoogleDevice.media_controller.status.artist)+ \
+                                            " ("+stringOrBlank(self.GoogleDevice.media_controller.status.album_name)+") "+ \
+                                            str(self.GoogleDevice.media_controller.status.title)
+
+                            # Now tidy up and compress the string
+                            sValue = sValue.lstrip(":")
+                            sValue = sValue.rstrip(", :")
+                            sValue = sValue.replace("()", "")
+                            sValue = sValue.replace("[] ", "")
+                            sValue = sValue.replace("[S:E] ", "")
+                            sValue = sValue.replace("  ", " ")
+                            sValue = sValue.replace(", :", ":")
+                            sValue = sValue.replace(", (", " (")
+                            if (len(sValue) > 40): sValue = sValue.replace(", ", ",")
+                            if (len(sValue) > 40): sValue = sValue.replace(" (", "(")
+                            if (len(sValue) > 40): sValue = sValue.replace(") ", ")")
+                            if (len(sValue) > 40): sValue = sValue.replace(": ", ":")
+                            if (len(sValue) > 40): sValue = sValue.replace(" [", "[")
+                            if (len(sValue) > 40): sValue = sValue.replace("] ", "]")
+                            sValue = sValue.replace(",(", "(")
+                            #while (sValue.rfind(")") != -1) and (len(sValue) > 40):
+                            #    sValue = sValue.replace(sValue[sValue.rfind("("):sValue.rfind(")")+1],"")
+                        elif (Devices[Unit].DeviceID[-1] == "2"):   # Volume
+                            nValue = 2
+                            if (not self.Active) or (self.GoogleDevice.status.volume_muted == "True"):
+                                nValue = 0
+                            sValue = int(self.GoogleDevice.status.volume_level*100)
+                        elif (Devices[Unit].DeviceID[-1] == "3"):   # Playing
+                            #import rpdb
+                            #rpdb.set_trace()
+                            if (self.GoogleDevice.media_controller.status.duration == None):
+                                sValue='0'
+                            else:
+                                sValue=str(int((self.GoogleDevice.media_controller.status.adjusted_current_time / self.GoogleDevice.media_controller.status.duration)*100))
+                            if (self.GoogleDevice.media_controller.status.player_is_playing):
+                                nValue=2
+                                if (sValue=='0'): sValue='1'
+                            elif ( self.GoogleDevice.media_controller.status.player_is_paused):
+                                nValue=0
+                                if (sValue=='0'): sValue='1'
+                            else:
+                                nValue=0
+                                sValue='0'
+                        elif (Devices[Unit].DeviceID[-1] == "4"):   # Source (App Name)
+                            if (not self.Active):
+                                nValue = sValue = 0
+                            elif (self.GoogleDevice.status.display_name=='Spotify'):
+                                nValue = sValue = 10
+                            elif (self.GoogleDevice.status.display_name=='Netflix'):
+                                nValue = sValue = 20
+                            elif (self.GoogleDevice.status.display_name=='Youtube'):
+                                nValue = sValue = 30
+                            else:
+                                nValue = sValue = 40
+                        else:
+                            Domoticz.Error("Unknown device number: "+Devices[Unit].DeviceID)
+                            continue
+                        UpdateDevice(Unit, nValue, str(sValue), 0)
+                    else:
+                        if (Parameters["Mode5"] != "False"):
+                            UpdateDevice(Unit, Devices[Unit].nValue, Devices[Unit].sValue, 1)
+                   
+        except Exception as err:
+            Domoticz.Error("syncDevices: "+str(err))
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+            Domoticz.Error(str(exc_type)+", "+fname+", Line: "+str(exc_tb.tb_lineno))
+
+    def handleSocket(self):
+        try:
+            Domoticz.Debug(self.Name+" Started.")
+
+            self.GoogleDevice.register_status_listener(self.StatusListener(self))
+            self.GoogleDevice.media_controller.register_status_listener(self.StatusMediaListener(self))
+            self.GoogleDevice.register_connection_listener(self.ConnectionListener(self))
+
+            self.GoogleDevice.socket_client.start()
+            while not self.Exit:
+                time.sleep(0.25)
+                self.GoogleDevice.socket_client.run()
+                self.Ready = False
+                self.syncDevices()
+            self.GoogleDevice.socket_client.disconnect()
+
+            Domoticz.Debug(self.Name+" Stopped.")
+        except Exception as err:
+            Domoticz.Exception("handleSocket: "+str(err))
+    
+    def __str__(self):
+        return "'%s', UUID: '%s' + IP: '%s:%s'" % (self.Name, self.UUID, self.IP, self.Port)
+
+class BasePlugin:
+    
+    def __init__(self):
+        self.googleDevices = {}
+        self.stopDiscovery = None
+
+    def discoveryCallback(self, googleDevice):
+        try:
+            uuid = str(googleDevice.device.uuid)
+            if (uuid in self.googleDevices):
+                Domoticz.Debug("Discovery message seen from known device '"+googleDevice.device.friendly_name+"'")
+            else:
+                self.googleDevices[uuid] = GoogleDevice(googleDevice.host, googleDevice.port, googleDevice)
+                Domoticz.Debug("Discovery message seen from '"+googleDevice.device.friendly_name+"', added: "+str(self.googleDevices[uuid]))
+
+                createDomoticzDevice = True
+                maxUnitNo = 1
+                for Device in Devices:
+                    if (Devices[Device].Unit > maxUnitNo): maxUnitNo = Devices[Device].Unit
+                    if (Devices[Device].DeviceID.find(uuid) >= 0):
+                        createDomoticzDevice = False
+                        UpdateDevice(Devices[Device].Unit, Devices[Device].nValue, Devices[Device].sValue, 0)
+
+                if (createDomoticzDevice):
+                    logoType = 'ChromecastUltra'
+                    if (googleDevice.device.model_name.find("Home") >= 0): logoType = 'GoogleHomeMini'
+                    Domoticz.Log("Creating devices for '"+googleDevice.device.friendly_name+"' of type '"+googleDevice.device.model_name+"' in Domoticz, look in Devices tab.")
+                    Domoticz.Device(Name=self.googleDevices[uuid].Name+" Status", Unit=maxUnitNo+1, Type=17, Switchtype=17, Image=Images[logoType].ID, DeviceID=uuid+"-1", Description=googleDevice.device.model_name, Used=0).Create()
+                    Domoticz.Device(Name=self.googleDevices[uuid].Name+" Volume", Unit=maxUnitNo+2, Type=244, Subtype=73, Switchtype=7, Image=8, DeviceID=uuid+"-2", Description=googleDevice.device.model_name, Used=0).Create()
+                    Domoticz.Device(Name=self.googleDevices[uuid].Name+" Playing", Unit=maxUnitNo+3, Type=244, Subtype=73, Switchtype=7, Image=12, DeviceID=uuid+"-3", Description=googleDevice.device.model_name, Used=0).Create()
+                    if (googleDevice.device.model_name.find("Chromecast") >= 0):
+                        Options = {"LevelActions": "||||", "LevelNames": "Off|Spotify|Netflix|Youtube|Other", "LevelOffHidden": "false", "SelectorStyle": "0"}
+                        Domoticz.Device(Name=self.googleDevices[uuid].Name+" Source",  Unit=maxUnitNo+4, TypeName="Selector Switch", Switchtype=18, Image=12, DeviceID=uuid+"-4", Description=googleDevice.device.model_name, Used=0, Options=Options).Create()
+                    elif (googleDevice.device.model_name.find("Google Home") >= 0):
+                        pass
+                    else:
+                        Domoticz.Error("Unsupported device type: '"+googleDevice.device.model_name+"'")
+                
+                self.googleDevices[uuid].Thread = threading.Thread(target=self.googleDevices[uuid].handleSocket)
+                self.googleDevices[uuid].Thread.start()
+        except Exception as err:
+            Domoticz.Exception("discoveryCallback: "+str(err))
+
+    def onStart(self):
+        if Parameters["Mode6"] != "0":
+            Domoticz.Debugging(int(Parameters["Mode6"]))
+            DumpConfigToLog()
+            #logging.basicConfig(level=logging.DEBUG)
+
+        import site
+        Domoticz.Debug("Site package directories: "+str(site.getsitepackages()))
+
+        major,minor,x,y,z = sys.version_info
+        if (os.name == 'nt'):
+            Domoticz.Error("Windows is currently not supported.")
+        else:
+            sys.path.append('/usr/lib/python3/dist-packages')
+            sys.path.append('/usr/local/lib/python'+str(major)+'.'+str(minor)+'/dist-packages')
+        import pychromecast
+
+        if 'ChromecastUltra' not in Images: Domoticz.Image('ChromecastUltra.zip').Create()
+        if 'GoogleHomeMini' not in Images: Domoticz.Image('GoogleHomeMini.zip').Create()
+        
+        # Mark devices as timed out
+        if Parameters["Mode5"] != "False":
+            for Device in Devices:
+                UpdateDevice(Device, Devices[Device].nValue, Devices[Device].sValue, 1)
+
+        # Non-blocking asynchronous discovery, Nice !
+        self.stopDiscovery = pychromecast.get_chromecasts(callback=self.discoveryCallback, blocking=False)
+
+    def onMessage(self, Connection, Data):
+        try:
+            strData = Data.decode("utf-8", "ignore")
+            Domoticz.Debug("onMessage called from: "+Connection.Address+":"+Connection.Port)
+
+        except Exception as inst:
+            Domoticz.Error("Exception in onMessage, called with Data: '"+str(strData)+"'")
+            Domoticz.Error("Exception detail: '"+str(inst)+"'")
+            raise
+
+    def onHeartbeat(self):
+        for uuid in self.googleDevices:
+            if (self.googleDevices[uuid].Active):
+                self.googleDevices[uuid].syncDevices()
+
+    def onStop(self):
+        for uuid in self.googleDevices:
+            if (self.googleDevices[uuid].Thread != None):
+                Domoticz.Log(self.googleDevices[uuid].Name+" Stopping...")
+                self.googleDevices[uuid].Exit = True
+                self.googleDevices[uuid].GoogleDevice.socket_client.stop.set()
+                self.googleDevices[uuid].Thread.join()
+        if (self.stopDiscovery != None):
+            Domoticz.Log("Zeroconf Discovery Stopping...")
+            self.stopDiscovery()
+        while (threading.active_count() > 1):
+            Domoticz.Log("Threads still active ("+str(threading.active_count())+")")
+            Domoticz.Log("Current thread: "+str(threading.current_thread()))
+            for thread in threading.enumerate():
+                if (thread.name != threading.current_thread().name):
+                    Domoticz.Log(thread.name+" is still running.")
+            time.sleep(1.0)
+
+def fileserver():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        Port = int(Parameters["Port"])
+        Domoticz.Log("Starting file server on port "+str(Port))
+        Filelocation=Parameters["Mode2"]
+        os.chdir(Filelocation)
+        Handler = http.server.SimpleHTTPRequestHandler
+        httpd = socketserver.TCPServer(("", Port), Handler)
+        p = Process(target=httpd.serve_forever)
+        p.deamon=True
+        p.start()
+        Domoticz.Log("Files in the '"+Filelocation+"' directory are now available on port "+str(Port))
+    except Exception as e:
+        senderror(e)
+
+global _plugin
+_plugin = BasePlugin()
+
+def onStart():
+    global _plugin
+    _plugin.onStart()
+
+def onStop():
+    global _plugin
+    _plugin.onStop()
+
+def onMessage(Connection, Data):
+    global _plugin
+    _plugin.onMessage(Connection, Data)
+
+def onHeartbeat():
+    global _plugin
+    _plugin.onHeartbeat()
+
+# Generic helper functions
+def stringOrBlank(input):
+    if (input == None): return ""
+    else: return str(input)
+
+def DumpConfigToLog():
+    for x in Parameters:
+        if Parameters[x] != "":
+            Domoticz.Debug( "'" + x + "':'" + str(Parameters[x]) + "'")
+    Domoticz.Debug("Device count: " + str(len(Devices)))
+    for x in Devices:
+        Domoticz.Debug("Device:           " + str(x) + " - " + str(Devices[x]))
+        Domoticz.Debug("Device ID:       '" + str(Devices[x].ID) + "'")
+        Domoticz.Debug("Device Name:     '" + Devices[x].Name + "'")
+        Domoticz.Debug("Device nValue:    " + str(Devices[x].nValue))
+        Domoticz.Debug("Device sValue:   '" + Devices[x].sValue + "'")
+        Domoticz.Debug("Device LastLevel: " + str(Devices[x].LastLevel))
+    return
+
+def UpdateDevice(Unit, nValue, sValue, TimedOut):
+    # Make sure that the Domoticz device still exists (they can be deleted) before updating it 
+    if (Unit in Devices):
+        if (str(Devices[Unit].nValue) != str(nValue)) or (str(Devices[Unit].sValue) != str(sValue)) or (str(Devices[Unit].TimedOut) != str(TimedOut)):
+            Domoticz.Log("["+Devices[Unit].Name+"] Update "+str(nValue)+"("+str(Devices[Unit].nValue)+"):'"+sValue+"'("+Devices[Unit].sValue+"): "+str(TimedOut)+"("+str(Devices[Unit].TimedOut)+")")
+            Devices[Unit].Update(nValue=nValue, sValue=str(sValue), TimedOut=TimedOut)
+    return
+
+def UpdateImage(Unit, Logo):
+    if Unit in Devices and Logo in Images:
+        if Devices[Unit].Image != Images[Logo].ID:
+            Domoticz.Log("Device Image update: 'Chromecast', Currently " + str(Devices[Unit].Image) + ", should be " + str(Images[Logo].ID))
+            Devices[Unit].Update(nValue=Devices[Unit].nValue, sValue=str(Devices[Unit].sValue), Image=Images[Logo].ID)
+    return
