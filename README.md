@@ -43,6 +43,7 @@ Nothing !
 | ----- | ---------- |
 | Notifications<br/>(future) | If true it will send audible notifications to the active devices |
 | Notifier Name<br/>(future) | Only used if 'Notifications' is true. This name will appear in the list of notification targets when you use the 'Notifications' Button. Notifications you send to this target will appear on screen |
+| Log messages to file | When true, messages from Google devices are written to Messages.log in the Plugin's directory |
 | Time Out Lost Devices | When true, the devices in Domoitcz will have a red banner when network connectivity is lost |
 | Debug | When true the logging level will be much higher to aid with troubleshooting |
 
