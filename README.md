@@ -41,8 +41,8 @@ Nothing !
 
 | Field | Information |
 | ----- | ---------- |
-| Notifications | If true it will send audible notifications to the active devices |
-| Notifier Name | Only used if 'Notifications' is true. This name will appear in the list of notification targets when you use the 'Notifications' Button. Notifications you send to this target will appear on screen |
+| Notifications<br/>(future) | If true it will send audible notifications to the active devices |
+| Notifier Name<br/>(future) | Only used if 'Notifications' is true. This name will appear in the list of notification targets when you use the 'Notifications' Button. Notifications you send to this target will appear on screen |
 | Time Out Lost Devices | When true, the devices in Domoitcz will have a red banner when network connectivity is lost |
 | Debug | When true the logging level will be much higher to aid with troubleshooting |
 
@@ -56,9 +56,7 @@ Nothing !
 | Pause<br/>Paused | Pauses playing current media |
 | Rewind | Sets position in current media back to the start |
 | Stop<br/>Stopped | Stops playing current media |
-| Trigger Playlist &lt;name&gt; &lt;position&gt; | Start playing playlist &lt;name&gt; optionally at the supplied &lt;position&gt; |
-| Trigger Favorites &lt;position&gt; | Start playing favorites optionally at the supplied &lt;position&gt; |
-| Run &lt;params&gt; | Execute add on &lt;params&gt; |
+| Trigger Playlist &lt;name&gt; &lt;position&gt;<br/>(future) | Start playing playlist &lt;name&gt; optionally at the supplied &lt;position&gt; |
 | Off | For 'Volume' Device - Turns mute on, <br/>For 'Playing' Device - Pause playback |
 
 ## Change log
@@ -66,3 +64,4 @@ Nothing !
 | Version | Information |
 | ----- | ---------- |
 | 1.0.0 | Initial upload version |
+| 1.1.2 | Actually functional (still WIP though). |
