@@ -7,7 +7,7 @@
 #         Based on plugin authored by Tsjippy
 #
 """
-<plugin key="ChromeCast" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.1.2">
+<plugin key="ChromeCast" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.2.0">
     <params>
         <param field="Port" label="Port for filesharing" width="50px" required="true" default="8000"/>
         <param field="Mode1" label="Log messages to file" width="75px">
@@ -42,10 +42,10 @@ import threading
 import time
 #import logging
  
-DEV_STATUS = "-1"
-DEV_VOLUME = "-2"
+DEV_STATUS  = "-1"
+DEV_VOLUME  = "-2"
 DEV_PLAYING = "-3"
-DEV_SOURCE = "-4"
+DEV_SOURCE  = "-4"
 
 APP_NONE=0
 APP_OTHER=40
@@ -357,6 +357,8 @@ class BasePlugin:
                         self.googleDevices[uuid].GoogleDevice.start_app(Apps[Level]['id'])
                     else:
                         self.googleDevices[uuid].GoogleDevice.start_app(Apps[40]['id'])
+        elif (action == 'Rewind'):
+            self.googleDevices[uuid].GoogleDevice.media_controller.seek(0.0)
         elif (action == 'Play') or (action == 'Playing'):
             self.googleDevices[uuid].GoogleDevice.media_controller.play()
         elif (action == 'Pause') or (action == 'Paused'):
