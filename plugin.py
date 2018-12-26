@@ -366,12 +366,12 @@ class BasePlugin:
         elif (action == 'Video'): # Blockly command
             for App in Apps:
                 if (Apps[App]['name'] == "Netflix"):
-                    nValue = sValue = App
+                    self.googleDevices[uuid].GoogleDevice.start_app(Apps[App]['id'])
                     break
         elif (action == 'Audio'): # Blockly command
             for App in Apps:
                 if (Apps[App]['name'] == "Spotify"):
-                    nValue = sValue = App
+                    self.googleDevices[uuid].GoogleDevice.start_app(Apps[App]['id'])
                     break
         
     def onHeartbeat(self):
