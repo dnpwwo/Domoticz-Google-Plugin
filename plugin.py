@@ -7,13 +7,25 @@
 #         Based on plugin authored by Tsjippy
 #
 """
-<plugin key="ChromeCast" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.2.0">
+<plugin key="ChromeCast" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.2.1">
     <params>
         <param field="Port" label="Port for filesharing" width="50px" required="true" default="8000"/>
         <param field="Mode1" label="Log messages to file" width="75px">
             <options>
                 <option label="True" value="True"/>
                 <option label="False" value="False" default="true"/>
+            </options>
+        </param>
+        <param field="Mode3" label="Preferred Video App" width="100px">
+            <options>
+                <option label="Netflix" value="Netflix" default="true"/>
+                <option label="Youtube" value="Youtube" />
+            </options>
+        </param>
+        <param field="Mode4" label="Preferred Audio App" width="100px">
+            <options>
+                <option label="Spotify" value="Spotify" default="true"/>
+                <option label="Youtube" value="Youtube" />
             </options>
         </param>
         <param field="Mode5" label="Time Out Lost Devices" width="75px">
@@ -41,7 +53,7 @@ import sys,os
 import threading
 import time
 #import logging
- 
+
 DEV_STATUS  = "-1"
 DEV_VOLUME  = "-2"
 DEV_PLAYING = "-3"
@@ -143,6 +155,9 @@ class GoogleDevice:
                                 sValue = liveStream+stringOrBlank(self.GoogleDevice.media_controller.status.artist)+ \
                                             " ("+stringOrBlank(self.GoogleDevice.media_controller.status.album_name)+") "+ \
                                             str(self.GoogleDevice.media_controller.status.title)
+
+                            # Check to see if we are paused
+                            if (self.GoogleDevice.media_controller.status.player_is_paused): nValue = 2
 
                             # Now tidy up and compress the string
                             sValue = sValue.lstrip(":")
@@ -335,6 +350,8 @@ class BasePlugin:
                 self.googleDevices[uuid].GoogleDevice.set_volume_muted(True)
             elif (subUnit == DEV_PLAYING):
                 self.googleDevices[uuid].GoogleDevice.media_controller.pause()
+            elif (subUnit == DEV_SOURCE):
+                self.googleDevices[uuid].GoogleDevice.quit_app()
         elif (action == 'Set'):
             if (params.capitalize() == 'Level') or (Command.lower() == 'Volume'):
                 if (subUnit == DEV_VOLUME):
@@ -363,16 +380,23 @@ class BasePlugin:
             self.googleDevices[uuid].GoogleDevice.media_controller.play()
         elif (action == 'Pause') or (action == 'Paused'):
             self.googleDevices[uuid].GoogleDevice.media_controller.pause()
+        elif (action == 'Trigger'):
+            #mc.play_media('http://'+str(self.ip)+':'+str(self.Port)+'/message.mp3', 'music/mp3')
+            x = 1
         elif (action == 'Video'): # Blockly command
-            for App in Apps:
-                if (Apps[App]['name'] == "Netflix"):
-                    self.googleDevices[uuid].GoogleDevice.start_app(Apps[App]['id'])
-                    break
+            if (self.googleDevices[uuid].GoogleDevice.app_display_name != Apps[APP_NONE]['name']) and (self.googleDevices[uuid].GoogleDevice.app_display_name != Parameters["Mode3"]):
+                self.googleDevices[uuid].GoogleDevice.quit_app()
+                for App in Apps:
+                    if (Apps[App]['name'] == Parameters["Mode3"]):
+                        self.googleDevices[uuid].GoogleDevice.start_app(Apps[App]['id'])
+                        break
         elif (action == 'Audio'): # Blockly command
-            for App in Apps:
-                if (Apps[App]['name'] == "Spotify"):
-                    self.googleDevices[uuid].GoogleDevice.start_app(Apps[App]['id'])
-                    break
+            if (self.googleDevices[uuid].GoogleDevice.app_display_name != Apps[APP_NONE]['name']) and (self.googleDevices[uuid].GoogleDevice.app_display_name != Parameters["Mode4"]):
+                self.googleDevices[uuid].GoogleDevice.quit_app()
+                for App in Apps:
+                    if (Apps[App]['name'] == Parameters["Mode4"]):
+                        self.googleDevices[uuid].GoogleDevice.start_app(Apps[App]['id'])
+                        break
         
     def onHeartbeat(self):
         for uuid in self.googleDevices:
