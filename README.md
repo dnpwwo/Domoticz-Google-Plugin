@@ -41,10 +41,11 @@ Nothing !
 
 | Field | Information |
 | ----- | ---------- |
-| Notifications<br/>(future) | If true it will send audible notifications to the active devices |
-| Notifier Name<br/>(future) | Only used if 'Notifications' is true. This name will appear in the list of notification targets when you use the 'Notifications' Button. Notifications you send to this target will appear on screen |
-| Log messages to file | When true, messages from Google devices are written to Messages.log in the Plugin's directory |
+| Voice Notify<br/>(future) | If true it will send audible notifications devices to device types specified |
+| Preferred Video App |  Notifications you send to this target will appear on screen |
+| Preferred Audio App |  Notifications you send to this target will appear on screen |
 | Time Out Lost Devices | When true, the devices in Domoitcz will have a red banner when network connectivity is lost |
+| Log messages to file | When true, messages from Google devices are written to Messages.log in the Plugin's directory |
 | Debug | When true the logging level will be much higher to aid with troubleshooting |
 
 ## Supported Commands
@@ -57,7 +58,9 @@ Nothing !
 | Pause<br/>Paused | Pauses playing current media |
 | Rewind | Sets position in current media back to the start |
 | Stop<br/>Stopped | Stops playing current media |
-| Trigger Playlist &lt;name&gt; &lt;position&gt;<br/>(future) | Start playing playlist &lt;name&gt; optionally at the supplied &lt;position&gt; |
+| Trigger &lt;URL&gt; | Start playing &lt;URL&gt; |
+| Video | Switch device to the selected Video App |
+| Audio | Switch device to the selected Audio App |
 | Off | For 'Volume' Device - Turns mute on, <br/>For 'Playing' Device - Pause playback |
 
 ## Change log
@@ -66,3 +69,4 @@ Nothing !
 | ----- | ---------- |
 | 1.0.0 | Initial upload version |
 | 1.1.2 | Actually functional (still WIP though). |
+| 1.2.1 | Added parameters. |

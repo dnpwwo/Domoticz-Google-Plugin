@@ -1,4 +1,4 @@
-# Chromecast
+# Google Devices
 #
 # Listens for chromecast and home devices and monitors the ones it finds.
 # New ones are added automatically and named using their friendly name
@@ -7,31 +7,38 @@
 #         Based on plugin authored by Tsjippy
 #
 """
-<plugin key="ChromeCast" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.2.1">
+<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.2.1">
     <params>
         <param field="Port" label="Port for filesharing" width="50px" required="true" default="8000"/>
-        <param field="Mode1" label="Log messages to file" width="75px">
+        <param field="Mode1" label="Voice Notify" width="175px">
             <options>
-                <option label="True" value="True"/>
-                <option label="False" value="False" default="true"/>
+                <option label="Google Homes only" value="Home" default="true"/>
+                <option label="Chromecasts only" value="Chromecast" />
+                <option label="All Devices" value="All" />
             </options>
         </param>
-        <param field="Mode3" label="Preferred Video App" width="100px">
+        <param field="Mode2" label="Preferred Video App" width="100px">
             <options>
                 <option label="Netflix" value="Netflix" default="true"/>
                 <option label="Youtube" value="Youtube" />
             </options>
         </param>
-        <param field="Mode4" label="Preferred Audio App" width="100px">
+        <param field="Mode3" label="Preferred Audio App" width="100px">
             <options>
                 <option label="Spotify" value="Spotify" default="true"/>
                 <option label="Youtube" value="Youtube" />
             </options>
         </param>
-        <param field="Mode5" label="Time Out Lost Devices" width="75px">
+        <param field="Mode4" label="Time Out Lost Devices" width="75px">
             <options>
                 <option label="True" value="True" default="true"/>
                 <option label="False" value="False" />
+            </options>
+        </param>
+        <param field="Mode5" label="Log to file" width="75px">
+            <options>
+                <option label="True" value="True"/>
+                <option label="False" value="False" default="true"/>
             </options>
         </param>
         <param field="Mode6" label="Debug" width="150px">
@@ -115,7 +122,7 @@ class GoogleDevice:
                 Domoticz.Error("new_connection_status: "+str(new_status))
 
     def LogToFile(self, status):
-        if (Parameters["Mode1"] != "False"):
+        if (Parameters["Mode5"] != "False"):
             print(time.strftime('%Y-%m-%d %H:%M:%S')+" ["+self.Name+"] "+str(status), file=open(Parameters["HomeFolder"]+"Messages.log", "a"))
         
     def syncDevices(self):
@@ -210,7 +217,7 @@ class GoogleDevice:
                             continue
                         UpdateDevice(Unit, nValue, str(sValue), 0)
                     else:
-                        if (Parameters["Mode5"] != "False"):
+                        if (Parameters["Mode4"] != "False"):
                             UpdateDevice(Unit, Devices[Unit].nValue, Devices[Unit].sValue, 1)
                    
         except Exception as err:
@@ -267,8 +274,8 @@ class BasePlugin:
                         UpdateDevice(Devices[Device].Unit, Devices[Device].nValue, Devices[Device].sValue, 0)
 
                 if (createDomoticzDevice):
-                    logoType = 'ChromecastUltra'
-                    if (googleDevice.device.model_name.find("Home") >= 0): logoType = 'GoogleHomeMini'
+                    logoType = Parameters['Key']+'Chromecast'
+                    if (googleDevice.device.model_name.find("Home") >= 0): logoType = Parameters['Key']+'HomeMini'
                     Domoticz.Log("Creating devices for '"+googleDevice.device.friendly_name+"' of type '"+googleDevice.device.model_name+"' in Domoticz, look in Devices tab.")
                     Domoticz.Device(Name=self.googleDevices[uuid].Name+" Status", Unit=maxUnitNo+1, Type=17, Switchtype=17, Image=Images[logoType].ID, DeviceID=uuid+DEV_STATUS, Description=googleDevice.device.model_name, Used=0).Create()
                     Domoticz.Device(Name=self.googleDevices[uuid].Name+" Volume", Unit=maxUnitNo+2, Type=244, Subtype=73, Switchtype=7, Image=8, DeviceID=uuid+DEV_VOLUME, Description=googleDevice.device.model_name, Used=0).Create()
@@ -303,11 +310,13 @@ class BasePlugin:
             sys.path.append('/usr/local/lib/python'+str(major)+'.'+str(minor)+'/dist-packages')
         import pychromecast
 
-        if 'ChromecastUltra' not in Images: Domoticz.Image('ChromecastUltra.zip').Create()
-        if 'GoogleHomeMini' not in Images: Domoticz.Image('GoogleHomeMini.zip').Create()
+        #import rpdb
+        #rpdb.set_trace()
+        if Parameters['Key']+'Chromecast' not in Images: Domoticz.Image('ChromecastUltra.zip').Create()
+        if Parameters['Key']+'HomeMini' not in Images: Domoticz.Image('GoogleHomeMini.zip').Create()
         
         # Mark devices as timed out
-        if Parameters["Mode5"] != "False":
+        if Parameters["Mode4"] != "False":
             for Device in Devices:
                 UpdateDevice(Device, Devices[Device].nValue, Devices[Device].sValue, 1)
 
@@ -368,8 +377,6 @@ class BasePlugin:
                         else:
                             Domoticz.Log("["+self.googleDevices[uuid].Name+"] No duration found, seeking is not possible at this time.")
                 elif (subUnit == DEV_SOURCE):
-                    #import rpdb
-                    #rpdb.set_trace()
                     if (Apps[Level]['id']!=''):
                         self.googleDevices[uuid].GoogleDevice.start_app(Apps[Level]['id'])
                     else:
@@ -384,17 +391,17 @@ class BasePlugin:
             #mc.play_media('http://'+str(self.ip)+':'+str(self.Port)+'/message.mp3', 'music/mp3')
             x = 1
         elif (action == 'Video'): # Blockly command
+            if (self.googleDevices[uuid].GoogleDevice.app_display_name != Apps[APP_NONE]['name']) and (self.googleDevices[uuid].GoogleDevice.app_display_name != Parameters["Mode2"]):
+                self.googleDevices[uuid].GoogleDevice.quit_app()
+                for App in Apps:
+                    if (Apps[App]['name'] == Parameters["Mode2"]):
+                        self.googleDevices[uuid].GoogleDevice.start_app(Apps[App]['id'])
+                        break
+        elif (action == 'Audio'): # Blockly command
             if (self.googleDevices[uuid].GoogleDevice.app_display_name != Apps[APP_NONE]['name']) and (self.googleDevices[uuid].GoogleDevice.app_display_name != Parameters["Mode3"]):
                 self.googleDevices[uuid].GoogleDevice.quit_app()
                 for App in Apps:
                     if (Apps[App]['name'] == Parameters["Mode3"]):
-                        self.googleDevices[uuid].GoogleDevice.start_app(Apps[App]['id'])
-                        break
-        elif (action == 'Audio'): # Blockly command
-            if (self.googleDevices[uuid].GoogleDevice.app_display_name != Apps[APP_NONE]['name']) and (self.googleDevices[uuid].GoogleDevice.app_display_name != Parameters["Mode4"]):
-                self.googleDevices[uuid].GoogleDevice.quit_app()
-                for App in Apps:
-                    if (Apps[App]['name'] == Parameters["Mode4"]):
                         self.googleDevices[uuid].GoogleDevice.start_app(Apps[App]['id'])
                         break
         
