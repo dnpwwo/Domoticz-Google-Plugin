@@ -7,16 +7,8 @@
 #         Based on plugin authored by Tsjippy
 #
 """
-<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.2.1">
+<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.3.5">
     <params>
-        <param field="Port" label="Port for filesharing" width="50px" required="true" default="8000"/>
-        <param field="Mode1" label="Voice Notify" width="175px">
-            <options>
-                <option label="Google Homes only" value="Home" default="true"/>
-                <option label="Chromecasts only" value="Chromecast" />
-                <option label="All Devices" value="All" />
-            </options>
-        </param>
         <param field="Mode2" label="Preferred Video App" width="100px">
             <options>
                 <option label="Netflix" value="Netflix" default="true"/>
@@ -29,6 +21,9 @@
                 <option label="Youtube" value="Youtube" />
             </options>
         </param>
+        <param field="Mode1" label="Voice Device/Group" width="150px" />
+        <param field="Address" label="Voice message IP address" width="200px" required="true" default="127.0.0.1"/>
+        <param field="Port" label="Voice message port" width="50px" required="true" default="8009"/>
         <param field="Mode4" label="Time Out Lost Devices" width="75px">
             <options>
                 <option label="True" value="True" default="true"/>
@@ -61,6 +56,15 @@ import threading
 import time
 #import logging
 
+major,minor,x,y,z = sys.version_info
+if (os.name == 'nt'):
+    Domoticz.Error("Windows is currently not supported.")
+else:
+    sys.path.append('/usr/lib/python3/dist-packages')
+    sys.path.append('/usr/local/lib/python'+str(major)+'.'+str(minor)+'/dist-packages')
+import pychromecast
+import pychromecast.config as Consts
+
 DEV_STATUS  = "-1"
 DEV_VOLUME  = "-2"
 DEV_PLAYING = "-3"
@@ -68,7 +72,7 @@ DEV_SOURCE  = "-4"
 
 APP_NONE=0
 APP_OTHER=40
-Apps={ APP_NONE:{'id':'E8C28D3C', 'name':'Backdrop'}, 10:{'id':'CC32E753', 'name':'Spotify'}, 20:{'id':'CA5E8412', 'name':'Netflix'}, 30:{'id':'233637DE', 'name':'Youtube'}, APP_OTHER:{'id':'', 'name':'Other'}    }
+Apps={ APP_NONE:{'id':Consts.APP_BACKDROP , 'name':'Backdrop'}, 10:{'id':Consts.APP_SPOTIFY, 'name':'Spotify'}, 20:{'id':'CA5E8412', 'name':'Netflix'}, 30:{'id':Consts.APP_YOUTUBE , 'name':'Youtube'}, APP_OTHER:{'id':'', 'name':'Other'}    }
 
 class GoogleDevice:
     def __init__(self, IP, Port, googleDevice):
@@ -254,7 +258,28 @@ class BasePlugin:
     def __init__(self):
         self.googleDevices = {}
         self.stopDiscovery = None
+        self.messageServer = None
 
+    def handleMessage(self, Message):
+        try:
+            Domoticz.Debug("handleMessage: "+Message)
+            os.system('curl -s -G "http://translate.google.com/translate_tts" --data "ie=UTF-8&total=1&idx=0&client=tw-ob&&tl=en-US" --data-urlencode "q='+Message+'" -A "Mozilla" --compressed -o '+Parameters['HomeFolder']+'Messages/message.mp3')
+            
+            #import http.server
+            #import socketserver
+            #os.chdir(Parameters['HomeFolder']+'Messages')
+            #Handler = http.server.SimpleHTTPRequestHandler
+            #httpd = socketserver.TCPServer(("", 12121), Handler)
+            for uuid in self.googleDevices:
+                if (self.googleDevices[uuid].GoogleDevice.device.friendly_name == Parameters['Mode1']):
+                    self.googleDevices[uuid].GoogleDevice.media_controller.play_media("http://"+Parameters["Address"]+":"+Parameters["Port"]+"/message.mp3", 'music/mp3')
+            #httpd.handle_request()
+            #httpd.server_close()
+            #httpd.shutdown()
+            Domoticz.Debug("handleMessage: Done?")          
+        except Exception as err:
+            Domoticz.Exception("handleMessage: "+str(err))
+    
     def discoveryCallback(self, googleDevice):
         global DEV_STATUS,DEV_VOLUME,DEV_PLAYING,DEV_SOURCE
         try:
@@ -302,14 +327,6 @@ class BasePlugin:
         import site
         Domoticz.Debug("Site package directories: "+str(site.getsitepackages()))
 
-        major,minor,x,y,z = sys.version_info
-        if (os.name == 'nt'):
-            Domoticz.Error("Windows is currently not supported.")
-        else:
-            sys.path.append('/usr/lib/python3/dist-packages')
-            sys.path.append('/usr/local/lib/python'+str(major)+'.'+str(minor)+'/dist-packages')
-        import pychromecast
-
         #import rpdb
         #rpdb.set_trace()
         if Parameters['Key']+'Chromecast' not in Images: Domoticz.Image('ChromecastUltra.zip').Create()
@@ -320,17 +337,33 @@ class BasePlugin:
             for Device in Devices:
                 UpdateDevice(Device, Devices[Device].nValue, Devices[Device].sValue, 1)
 
+        if Parameters["Mode1"] != "":
+            Domoticz.Notifier("Google_Devices")
+
+        self.messageServer = Domoticz.Connection(Name="Message Server", Transport="TCP/IP", Protocol="HTTP", Port=Parameters["Port"])
+        self.messageServer.Listen()
+
         # Non-blocking asynchronous discovery, Nice !
         self.stopDiscovery = pychromecast.get_chromecasts(callback=self.discoveryCallback, blocking=False)
 
     def onMessage(self, Connection, Data):
         try:
-            strData = Data.decode("utf-8", "ignore")
             Domoticz.Debug("onMessage called from: "+Connection.Address+":"+Connection.Port)
 
+            if (not 'URL' in Data):
+                Domoticz.Error("Invalid we request received, no URL present")
+                DumpHTTPResponseToLog(Data)
+                return
+
+            with open(Parameters["HomeFolder"]+"Messages"+Data["URL"], mode='rb') as file:
+                fileContent = file.read()
+            Domoticz.Debug("Read "+str(len(fileContent))+" bytes of data into variable of type: "+str(type(fileContent)))
+
+            Connection.Send({"Status":"200 OK", "Headers": {"Content-Type": "music/mp3"}, "Data": fileContent})
+
         except Exception as inst:
-            Domoticz.Error("Exception in onMessage, called with Data: '"+str(strData)+"'")
             Domoticz.Error("Exception detail: '"+str(inst)+"'")
+            DumpHTTPResponseToLog(Data)
             raise
 
     def onCommand(self, Unit, Command, Level, Hue):
@@ -410,6 +443,11 @@ class BasePlugin:
             if (self.googleDevices[uuid].Active):
                 self.googleDevices[uuid].syncDevices()
 
+    def onNotification(self, Name, Subject, Text, Status, Priority, Sound, ImageFile):
+        Domoticz.Debug("onNotification: " + Name + "," + Subject + "," + Text + "," + Status + "," + str(Priority) + "," + Sound + "," + ImageFile)
+        messageThread = threading.Thread(target=self.handleMessage(Text))
+        messageThread.start()
+
     def onStop(self):
         for uuid in self.googleDevices:
             if (self.googleDevices[uuid].Thread != None):
@@ -426,22 +464,6 @@ class BasePlugin:
                 if (thread.name != threading.current_thread().name):
                     Domoticz.Log("'"+thread.name+"' is still running, waiting otherwise Domoticz will crash on plugin exit.")
             time.sleep(1.0)
-
-def fileserver():
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        Port = int(Parameters["Port"])
-        Domoticz.Log("Starting file server on port "+str(Port))
-        Filelocation=Parameters["Mode2"]
-        os.chdir(Filelocation)
-        Handler = http.server.SimpleHTTPRequestHandler
-        httpd = socketserver.TCPServer(("", Port), Handler)
-        p = Process(target=httpd.serve_forever)
-        p.deamon=True
-        p.start()
-        Domoticz.Log("Files in the '"+Filelocation+"' directory are now available on port "+str(Port))
-    except Exception as e:
-        senderror(e)
 
 global _plugin
 _plugin = BasePlugin()
@@ -466,6 +488,10 @@ def onHeartbeat():
     global _plugin
     _plugin.onHeartbeat()
 
+def onNotification(Name, Subject, Text, Status, Priority, Sound, ImageFile):
+    global _plugin
+    _plugin.onNotification(Name, Subject, Text, Status, Priority, Sound, ImageFile)
+
 # Generic helper functions
 def stringOrBlank(input):
     if (input == None): return ""
@@ -484,6 +510,17 @@ def DumpConfigToLog():
         Domoticz.Debug("Device sValue:   '" + Devices[x].sValue + "'")
         Domoticz.Debug("Device LastLevel: " + str(Devices[x].LastLevel))
     return
+
+def DumpHTTPResponseToLog(httpDict):
+    if isinstance(httpDict, dict):
+        Domoticz.Log("HTTP Details ("+str(len(httpDict))+"):")
+        for x in httpDict:
+            if isinstance(httpDict[x], dict):
+                Domoticz.Log("--->'"+x+" ("+str(len(httpDict[x]))+"):")
+                for y in httpDict[x]:
+                    Domoticz.Log("------->'" + y + "':'" + str(httpDict[x][y]) + "'")
+            else:
+                Domoticz.Log("--->'" + x + "':'" + str(httpDict[x]) + "'")
 
 def UpdateDevice(Unit, nValue, sValue, TimedOut):
     # Make sure that the Domoticz device still exists (they can be deleted) before updating it 

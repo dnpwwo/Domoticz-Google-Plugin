@@ -14,7 +14,7 @@ Controls multiple Google Chromecasts and Homes on your network.   Tested on Linu
 
 ## Installation
 
-Python version 3.4 or higher required & Domoticz version 3.87xx or greater.  On Python 3.6.x this plugin will crash Domoticz 10-20% of the time when the plugin is stopped or restarted. This appears related to a defect introduced in Python 3.6 that has been reported on the internet.
+Python version 3.4 or higher required & a 2019 version of Domoticz (for voice to work).  On Python 3.6.x this plugin will crash Domoticz 10-20% of the time when the plugin is stopped or restarted. This appears related to a defect introduced in Python 3.6 that has been reported on the internet.
 
 To install:
 * Go in your Domoticz directory using a command line and open the plugins directory.
@@ -33,7 +33,7 @@ To update:
 
 ## Configuration
 
-### Google Chromecast & Home
+### Google Chromecast & Home Devices
 
 Nothing !
 
@@ -41,11 +41,13 @@ Nothing !
 
 | Field | Information |
 | ----- | ---------- |
-| Voice Notify<br/>(future) | If true it will send audible notifications devices to device types specified |
-| Preferred Video App |  Notifications you send to this target will appear on screen |
-| Preferred Audio App |  Notifications you send to this target will appear on screen |
+| Preferred Video App | Appication to select when scripts request 'Video' mode |
+| Preferred Audio App | Appication to select when scripts request 'Audio' mode |
+| Voice Device/Group | If specified device (or Audio Group) will receive audible notifications. 'Google_Devices' will appear as a notification target when editing any Domoticz device that supports Notifications |
+| Voice message IP address | Required for voice messages, the external address of the Domoticz host |
+| Voice message port | Required for voice messages, the port to use to serve the message to the Google device(s) |
 | Time Out Lost Devices | When true, the devices in Domoitcz will have a red banner when network connectivity is lost |
-| Log messages to file | When true, messages from Google devices are written to Messages.log in the Plugin's directory |
+| Log to file | When true, messages from Google devices are written to Messages.log in the Plugin's directory |
 | Debug | When true the logging level will be much higher to aid with troubleshooting |
 
 ## Supported Commands
@@ -70,3 +72,4 @@ Nothing !
 | 1.0.0 | Initial upload version |
 | 1.1.2 | Actually functional (still WIP though). |
 | 1.2.1 | Added parameters. |
+| 1.3.5 | Initial voice message support. |
