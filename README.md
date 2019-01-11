@@ -6,6 +6,7 @@ Controls multiple Google Chromecasts and Homes on your network.   Tested on Linu
 ## Key Features
 
 * Devices are discovered automatically and created in the Devices tab
+* Voice notifications can be sent to selected Google triggered by Domoticz notifications 
 * When network connectivity is lost the Domoticz UI will optionally show the device(s) with Red banner
 * Device icons are created in Domoticz
 * Domoticz can control the Application selected
