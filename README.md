@@ -25,6 +25,8 @@ To install:
 
 In the web UI, navigate to the Hardware page.  In the hardware dropdown there will be an entry called "Google Devices - Chromecast and Home".
 
+To send voice notifications enter a Google device name in the 'Voice Device/Group' field in the hardware tab, then use the Domoticz standard Notification capability for individual Domoticz devices. Selecting notification target of 'Google_Devices' will cause the notification text to be spoken by the Google device.
+
 ## Updating
 
 To update:
