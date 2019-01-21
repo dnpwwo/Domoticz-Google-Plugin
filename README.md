@@ -6,6 +6,7 @@ Controls multiple Google Chromecasts and Homes on your network.   Tested on Linu
 ## Key Features
 
 * Devices are discovered automatically and created in the Devices tab
+* Voice notifications can be sent to selected Google triggered by Domoticz notifications 
 * When network connectivity is lost the Domoticz UI will optionally show the device(s) with Red banner
 * Device icons are created in Domoticz
 * Domoticz can control the Application selected
@@ -23,6 +24,8 @@ To install:
 * Restart Domoticz.
 
 In the web UI, navigate to the Hardware page.  In the hardware dropdown there will be an entry called "Google Devices - Chromecast and Home".
+
+To send voice notifications enter a Google device name in the 'Voice Device/Group' field in the hardware tab, then use the Domoticz standard Notification capability for individual Domoticz devices. Selecting notification target of 'Google_Devices' will cause the notification text to be spoken by the Google device.
 
 ## Updating
 
