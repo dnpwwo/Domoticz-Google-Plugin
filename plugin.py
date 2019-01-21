@@ -221,12 +221,12 @@ class GoogleDevice:
                                     Devices[Unit].Update(len(Apps)*10, str(len(Apps)*10),Options = _plugin.appOptions)
                                     Domoticz.Log("Added '"+self.GoogleDevice.app_display_name+"' to the source device.")
 
+                                if self.GoogleDevice.app_display_name != None and sValue == APP_OTHER:
                                     for i, level in enumerate(Devices[Unit].Options['LevelNames'].split("|")):
                                         if level == self.GoogleDevice.app_display_name:
                                             Apps[i*10] = {'name': self.GoogleDevice.app_display_name, 'id': self.GoogleDevice.app_id}
-
-                                nValue = sValue = len(Apps)*10
-
+                                            nValue = sValue = i*10
+                                            break
                         else:
                             Domoticz.Error("Unknown device number: "+Devices[Unit].DeviceID)
                             continue
