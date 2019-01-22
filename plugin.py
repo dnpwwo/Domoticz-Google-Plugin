@@ -117,7 +117,8 @@ class GoogleDevice:
         def new_connection_status(self, new_status):
             try:
                 self.parent.LogToFile(new_status)
-                Domoticz.Status(self.parent.Name+" is now: "+new_status.status)
+                if Parameters["Mode6"] != "0":
+                    Domoticz.Status(self.parent.Name+" is now: "+new_status.status)
                 if (new_status.status == "DISCONNECTED") or (new_status.status == "LOST") or (new_status.status == "FAILED"):
                     self.parent.Ready = False
                 self.parent.syncDevices()
@@ -537,7 +538,8 @@ def UpdateDevice(Unit, nValue, sValue, TimedOut):
     # Make sure that the Domoticz device still exists (they can be deleted) before updating it 
     if (Unit in Devices):
         if (str(Devices[Unit].nValue) != str(nValue)) or (str(Devices[Unit].sValue) != str(sValue)) or (str(Devices[Unit].TimedOut) != str(TimedOut)):
-            #Domoticz.Log("["+Devices[Unit].Name+"] Update "+str(nValue)+"("+str(Devices[Unit].nValue)+"):'"+sValue+"'("+Devices[Unit].sValue+"): "+str(TimedOut)+"("+str(Devices[Unit].TimedOut)+")")
+            if Parameters["Mode6"] != "0":
+                Domoticz.Log("["+Devices[Unit].Name+"] Update "+str(nValue)+"("+str(Devices[Unit].nValue)+"):'"+sValue+"'("+Devices[Unit].sValue+"): "+str(TimedOut)+"("+str(Devices[Unit].TimedOut)+")")
             Devices[Unit].Update(nValue=nValue, sValue=str(sValue), TimedOut=TimedOut)
     return
 
