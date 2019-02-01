@@ -7,18 +7,29 @@
 #         Based on plugin authored by Tsjippy
 #
 """
-<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.3.5">
+<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.4.5">
     <params>
-        <param field="Mode2" label="Preferred Video App" width="100px">
+        <param field="Mode2" label="Preferred Video/Audio Apps" width="150px">
             <options>
-                <option label="Netflix" value="Netflix" default="true"/>
-                <option label="Youtube" value="Youtube" />
+                <option label="Netflix / Spotify" value="{|Video|:|Netflix|,|Audio|:|Spotify|}" default="true"/>
+                <option label="Youtube / Spotify" value="{|Video|:|Youtube|,|Audio|:|Spotify|}" />
+                <option label="Netflix / Youtube" value="{|Video|:|Netflix|,|Audio|:|Youtube|}" />
+                <option label="Youtube / Youtube" value="{|Video|:|Youtube|,|Audio|:|Youtube|}" />
+                <option label="None" value="{'Video':'','Audio':''}" />
             </options>
         </param>
-        <param field="Mode3" label="Preferred Audio App" width="100px">
+        <param field="Mode3" label="Voice message volume" width="50px" required="true">
             <options>
-                <option label="Spotify" value="Spotify" default="true"/>
-                <option label="Youtube" value="Youtube" />
+                <option label="10%" value="10" />
+                <option label="20%" value="20" />
+                <option label="30%" value="30" />
+                <option label="40%" value="40" />
+                <option label="50%" value="50" default="true"/>
+                <option label="60%" value="60" />
+                <option label="70%" value="70" />
+                <option label="80%" value="80" />
+                <option label="90%" value="90" />
+                <option label="100%" value="100" />
             </options>
         </param>
         <param field="Mode1" label="Voice Device/Group" width="150px" />
@@ -54,7 +65,7 @@ import Domoticz
 import sys,os
 import threading
 import time
-#import logging
+import json
 
 major,minor,x,y,z = sys.version_info
 if (os.name == 'nt'):
@@ -250,6 +261,15 @@ class GoogleDevice:
         except Exception as err:
             Domoticz.Exception("handleSocket: "+str(err))
     
+    @property
+    def VolumeUnit(self):
+        global DEV_VOLUME
+        # find first device
+        for Unit in Devices:
+            if (Devices[Unit].DeviceID == self.UUID+DEV_VOLUME):
+                return Unit
+        return None
+
     def __str__(self):
         return "'%s', UUID: '%s' + IP: '%s:%s'" % (self.Name, self.UUID, self.IP, self.Port)
 
@@ -265,20 +285,23 @@ class BasePlugin:
             Domoticz.Debug("handleMessage: "+Message)
             os.system('curl -s -G "http://translate.google.com/translate_tts" --data "ie=UTF-8&total=1&idx=0&client=tw-ob&&tl=en-US" --data-urlencode "q='+Message+'" -A "Mozilla" --compressed -o '+Parameters['HomeFolder']+'Messages/message.mp3')
             
-            #import http.server
-            #import socketserver
-            #os.chdir(Parameters['HomeFolder']+'Messages')
-            #Handler = http.server.SimpleHTTPRequestHandler
-            #httpd = socketserver.TCPServer(("", 12121), Handler)
+            #import rpdb
+            #rpdb.set_trace()
             for uuid in self.googleDevices:
                 if (self.googleDevices[uuid].GoogleDevice.device.friendly_name == Parameters['Mode1']):
+                    currentVolume = self.googleDevices[uuid].GoogleDevice.status.volume_level
+                    self.googleDevices[uuid].GoogleDevice.set_volume(int(Parameters["Mode3"]) / 100)
                     self.googleDevices[uuid].GoogleDevice.media_controller.play_media("http://"+Parameters["Address"]+":"+Parameters["Port"]+"/message.mp3", 'music/mp3')
-            #httpd.handle_request()
-            #httpd.server_close()
-            #httpd.shutdown()
-            Domoticz.Debug("handleMessage: Done?")          
+                    while self.googleDevices[uuid].GoogleDevice.media_controller.status.player_state != 'PLAYING' or self.googleDevices[uuid].GoogleDevice.status.display_name != 'Default Media Receiver':
+                        Domoticz.Debug("Sleeping while waiting for playing")
+                        time.sleep(0.25)
+                    while self.googleDevices[uuid].GoogleDevice.media_controller.status.player_state == 'PLAYING':
+                        Domoticz.Debug("Sleeping while playing")
+                        time.sleep(0.25)
+                    self.googleDevices[uuid].GoogleDevice.set_volume(currentVolume)
+            Domoticz.Debug("handleMessage: Done.")          
         except Exception as err:
-            Domoticz.Exception("handleMessage: "+str(err))
+            Domoticz.Error("handleMessage: "+str(err))
     
     def discoveryCallback(self, googleDevice):
         global DEV_STATUS,DEV_VOLUME,DEV_PLAYING,DEV_SOURCE
@@ -322,13 +345,14 @@ class BasePlugin:
         if Parameters["Mode6"] != "0":
             Domoticz.Debugging(int(Parameters["Mode6"]))
             DumpConfigToLog()
-            #logging.basicConfig(level=logging.DEBUG)
 
         import site
         Domoticz.Debug("Site package directories: "+str(site.getsitepackages()))
 
         #import rpdb
         #rpdb.set_trace()
+        Parameters["Mode2"] = json.loads(Parameters["Mode2"].replace('|','"'))
+        
         if Parameters['Key']+'Chromecast' not in Images: Domoticz.Image('ChromecastUltra.zip').Create()
         if Parameters['Key']+'HomeMini' not in Images: Domoticz.Image('GoogleHomeMini.zip').Create()
         
@@ -424,17 +448,17 @@ class BasePlugin:
             #mc.play_media('http://'+str(self.ip)+':'+str(self.Port)+'/message.mp3', 'music/mp3')
             x = 1
         elif (action == 'Video'): # Blockly command
-            if (self.googleDevices[uuid].GoogleDevice.app_display_name != Apps[APP_NONE]['name']) and (self.googleDevices[uuid].GoogleDevice.app_display_name != Parameters["Mode2"]):
+            if (self.googleDevices[uuid].GoogleDevice.app_display_name != Apps[APP_NONE]['name']) and (self.googleDevices[uuid].GoogleDevice.app_display_name != Parameters["Mode2"]["Video"]):
                 self.googleDevices[uuid].GoogleDevice.quit_app()
                 for App in Apps:
-                    if (Apps[App]['name'] == Parameters["Mode2"]):
+                    if (Apps[App]['name'] == Parameters["Mode2"]["Video"]):
                         self.googleDevices[uuid].GoogleDevice.start_app(Apps[App]['id'])
                         break
         elif (action == 'Audio'): # Blockly command
-            if (self.googleDevices[uuid].GoogleDevice.app_display_name != Apps[APP_NONE]['name']) and (self.googleDevices[uuid].GoogleDevice.app_display_name != Parameters["Mode3"]):
+            if (self.googleDevices[uuid].GoogleDevice.app_display_name != Apps[APP_NONE]['name']) and (self.googleDevices[uuid].GoogleDevice.app_display_name != Parameters["Mode2"]["Audio"]):
                 self.googleDevices[uuid].GoogleDevice.quit_app()
                 for App in Apps:
-                    if (Apps[App]['name'] == Parameters["Mode3"]):
+                    if (Apps[App]['name'] == Parameters["Mode2"]["Audio"]):
                         self.googleDevices[uuid].GoogleDevice.start_app(Apps[App]['id'])
                         break
         
@@ -445,7 +469,7 @@ class BasePlugin:
 
     def onNotification(self, Name, Subject, Text, Status, Priority, Sound, ImageFile):
         Domoticz.Debug("onNotification: " + Name + "," + Subject + "," + Text + "," + Status + "," + str(Priority) + "," + Sound + "," + ImageFile)
-        messageThread = threading.Thread(target=self.handleMessage(Text))
+        messageThread = threading.Thread(name="GoogleNotify", target=BasePlugin.handleMessage, args=(self,Text))
         messageThread.start()
 
     def onStop(self):

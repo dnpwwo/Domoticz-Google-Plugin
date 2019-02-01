@@ -44,8 +44,8 @@ Nothing !
 
 | Field | Information |
 | ----- | ---------- |
-| Preferred Video App | Appication to select when scripts request 'Video' mode |
-| Preferred Audio App | Appication to select when scripts request 'Audio' mode |
+| Preferred Video/Audio Apps | Application to select when scripts request 'Video' or 'Audio' mode |
+| Voice message volume | Volume to play messages (previous level will be restored afterwards) |
 | Voice Device/Group | If specified device (or Audio Group) will receive audible notifications. 'Google_Devices' will appear as a notification target when editing any Domoticz device that supports Notifications |
 | Voice message IP address | Required for voice messages, the external address of the Domoticz host |
 | Voice message port | Required for voice messages, the port to use to serve the message to the Google device(s) |
@@ -76,3 +76,4 @@ Nothing !
 | 1.1.2 | Actually functional (still WIP though). |
 | 1.2.1 | Added parameters. |
 | 1.3.5 | Initial voice message support. |
+| 1.4.8 | Bugfix: Google Home Icon zip had an error in it.<br/>Improved voice support, added volume option |
