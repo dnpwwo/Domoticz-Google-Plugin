@@ -128,7 +128,8 @@ class GoogleDevice:
         def new_connection_status(self, new_status):
             try:
                 self.parent.LogToFile(new_status)
-                Domoticz.Status(self.parent.Name+" is now: "+new_status.status)
+                if Parameters["Mode6"] != "0":
+                    Domoticz.Status(self.parent.Name+" is now: "+new_status.status)
                 if (new_status.status == "DISCONNECTED") or (new_status.status == "LOST") or (new_status.status == "FAILED"):
                     self.parent.Ready = False
                 self.parent.syncDevices()
@@ -205,7 +206,7 @@ class GoogleDevice:
                                 nValue = 0
                             sValue = int(self.GoogleDevice.status.volume_level*100)
                         elif (Devices[Unit].DeviceID[-1] == "3"):   # Playing
-                            if (self.GoogleDevice.media_controller.status.duration == None):
+                            if (self.GoogleDevice.media_controller.status.duration == None or self.GoogleDevice.media_controller.status.duration == 0):
                                 sValue='0'
                             else:
                                 sValue=str(int((self.GoogleDevice.media_controller.status.adjusted_current_time / self.GoogleDevice.media_controller.status.duration)*100))
@@ -227,6 +228,17 @@ class GoogleDevice:
                                     if (Apps[App]['name'] == self.GoogleDevice.app_display_name):
                                         nValue = sValue = App
                                         break
+                                if (self.GoogleDevice.app_display_name != None and Devices[Unit].Options['LevelNames'].find(self.GoogleDevice.app_display_name) == -1):
+                                    _plugin.appOptions['LevelNames']=_plugin.appOptions['LevelNames']+"|"+self.GoogleDevice.app_display_name
+                                    Devices[Unit].Update(len(Apps)*10, str(len(Apps)*10),Options = _plugin.appOptions)
+                                    Domoticz.Log("Added '"+self.GoogleDevice.app_display_name+"' to the source device.")
+
+                                if self.GoogleDevice.app_display_name != None and sValue == APP_OTHER:
+                                    for i, level in enumerate(Devices[Unit].Options['LevelNames'].split("|")):
+                                        if level == self.GoogleDevice.app_display_name:
+                                            Apps[i*10] = {'name': self.GoogleDevice.app_display_name, 'id': self.GoogleDevice.app_id}
+                                            nValue = sValue = i*10
+                                            break
                         else:
                             Domoticz.Error("Unknown device number: "+Devices[Unit].DeviceID)
                             continue
@@ -279,6 +291,7 @@ class BasePlugin:
         self.googleDevices = {}
         self.stopDiscovery = None
         self.messageServer = None
+        self.appOptions = {"LevelActions": "|", "LevelNames": "Off", "LevelOffHidden": "false", "SelectorStyle": "1"}
 
     def handleMessage(self, Message):
         try:
@@ -329,8 +342,7 @@ class BasePlugin:
                     Domoticz.Device(Name=self.googleDevices[uuid].Name+" Volume", Unit=maxUnitNo+2, Type=244, Subtype=73, Switchtype=7, Image=8, DeviceID=uuid+DEV_VOLUME, Description=googleDevice.device.model_name, Used=0).Create()
                     Domoticz.Device(Name=self.googleDevices[uuid].Name+" Playing", Unit=maxUnitNo+3, Type=244, Subtype=73, Switchtype=7, Image=12, DeviceID=uuid+DEV_PLAYING, Description=googleDevice.device.model_name, Used=0).Create()
                     if (googleDevice.device.model_name.find("Chromecast") >= 0):
-                        Options = {"LevelActions": "||||", "LevelNames": "Off|Spotify|Netflix|Youtube|Other", "LevelOffHidden": "false", "SelectorStyle": "0"}
-                        Domoticz.Device(Name=self.googleDevices[uuid].Name+" Source",  Unit=maxUnitNo+4, TypeName="Selector Switch", Switchtype=18, Image=12, DeviceID=uuid+DEV_SOURCE, Description=googleDevice.device.model_name, Used=0, Options=Options).Create()
+                        Domoticz.Device(Name=self.googleDevices[uuid].Name+" Source",  Unit=maxUnitNo+4, TypeName="Selector Switch", Switchtype=18, Image=12, DeviceID=uuid+DEV_SOURCE, Description=googleDevice.device.model_name, Used=0, Options=self.appOptions).Create()
                     elif (googleDevice.device.model_name.find("Google Home") >= 0):
                         pass
                     else:
@@ -550,7 +562,8 @@ def UpdateDevice(Unit, nValue, sValue, TimedOut):
     # Make sure that the Domoticz device still exists (they can be deleted) before updating it 
     if (Unit in Devices):
         if (str(Devices[Unit].nValue) != str(nValue)) or (str(Devices[Unit].sValue) != str(sValue)) or (str(Devices[Unit].TimedOut) != str(TimedOut)):
-            Domoticz.Log("["+Devices[Unit].Name+"] Update "+str(nValue)+"("+str(Devices[Unit].nValue)+"):'"+sValue+"'("+Devices[Unit].sValue+"): "+str(TimedOut)+"("+str(Devices[Unit].TimedOut)+")")
+            if Parameters["Mode6"] != "0":
+                Domoticz.Log("["+Devices[Unit].Name+"] Update "+str(nValue)+"("+str(Devices[Unit].nValue)+"):'"+sValue+"'("+Devices[Unit].sValue+"): "+str(TimedOut)+"("+str(Devices[Unit].TimedOut)+")")
             Devices[Unit].Update(nValue=nValue, sValue=str(sValue), TimedOut=TimedOut)
     return
 
