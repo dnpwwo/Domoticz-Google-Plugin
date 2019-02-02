@@ -7,7 +7,7 @@
 #         Based on plugin authored by Tsjippy
 #
 """
-<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.4.5">
+<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.5.3">
     <params>
         <param field="Mode2" label="Preferred Video/Audio Apps" width="150px">
             <options>
@@ -283,7 +283,7 @@ class BasePlugin:
     def handleMessage(self, Message):
         try:
             Domoticz.Debug("handleMessage: "+Message)
-            os.system('curl -s -G "http://translate.google.com/translate_tts" --data "ie=UTF-8&total=1&idx=0&client=tw-ob&&tl=en-US" --data-urlencode "q='+Message+'" -A "Mozilla" --compressed -o '+Parameters['HomeFolder']+'Messages/message.mp3')
+            os.system('curl -s -G "http://translate.google.com/translate_tts" --data "ie=UTF-8&total=1&idx=0&client=tw-ob&&tl='+Parameters["Language"]+'" --data-urlencode "q='+Message+'" -A "Mozilla" --compressed -o '+Parameters['HomeFolder']+'Messages/message.mp3')
             
             #import rpdb
             #rpdb.set_trace()
@@ -292,14 +292,20 @@ class BasePlugin:
                     currentVolume = self.googleDevices[uuid].GoogleDevice.status.volume_level
                     self.googleDevices[uuid].GoogleDevice.set_volume(int(Parameters["Mode3"]) / 100)
                     self.googleDevices[uuid].GoogleDevice.media_controller.play_media("http://"+Parameters["Address"]+":"+Parameters["Port"]+"/message.mp3", 'music/mp3')
-                    while self.googleDevices[uuid].GoogleDevice.media_controller.status.player_state != 'PLAYING' or self.googleDevices[uuid].GoogleDevice.status.display_name != 'Default Media Receiver':
-                        Domoticz.Debug("Sleeping while waiting for playing")
+                    abortCounter = 40 # 10 seconds max wait
+                    while (self.googleDevices[uuid].GoogleDevice.status.display_name != 'Default Media Receiver') and (abortCounter > 0):
+                        Domoticz.Debug("Waiting for 'Default Media Receiver' to start")
                         time.sleep(0.25)
-                    while self.googleDevices[uuid].GoogleDevice.media_controller.status.player_state == 'PLAYING':
-                        Domoticz.Debug("Sleeping while playing")
+                        abortCounter = abortCounter - 1
+                    while (self.googleDevices[uuid].GoogleDevice.status.display_name == 'Default Media Receiver') and (abortCounter > 0):
+                        Domoticz.Debug("Waiting for message to complete playing")
                         time.sleep(0.25)
+                        abortCounter = abortCounter - 1
                     self.googleDevices[uuid].GoogleDevice.set_volume(currentVolume)
-            Domoticz.Debug("handleMessage: Done.")          
+            if (abortCounter > 0):
+                Domoticz.Log("Notification complete: "+Message)      
+            else:
+                Domoticz.Error("Notification timed out: "+Message)      
         except Exception as err:
             Domoticz.Error("handleMessage: "+str(err))
     

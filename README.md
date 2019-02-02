@@ -12,6 +12,7 @@ Controls multiple Google Chromecasts and Homes on your network.   Tested on Linu
 * Domoticz can control the Application selected
 * Domoticz can control the Volume including Mute/Unmute
 * Domoticz can control the playing media.  Play/Pause and skip forward and backwards
+* Google devices can be the targets of native Domoticz notifications. These are spoken through a chosen device (or audio group) in the language specified in Domoticz 
 
 ## Installation
 
@@ -77,3 +78,4 @@ Nothing !
 | 1.2.1 | Added parameters. |
 | 1.3.5 | Initial voice message support. |
 | 1.4.8 | Bugfix: Google Home Icon zip had an error in it.<br/>Improved voice support, added volume option |
+| 1.5.3 | Bugfix: Plugin could hang during message handling, now does not wait forever.<br/>Messages are now spoken in the Domoticz UI language |
