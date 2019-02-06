@@ -79,3 +79,4 @@ Nothing !
 | 1.3.5 | Initial voice message support. |
 | 1.4.8 | Bugfix: Google Home Icon zip had an error in it.<br/>Improved voice support, added volume option |
 | 1.5.3 | Bugfix: Plugin could hang during message handling, now does not wait forever.<br/>Messages are now spoken in the Domoticz UI language |
+| 1.5.8 | Spoken messages are now queued.<br/>Manual load of site packages |
