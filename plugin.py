@@ -7,7 +7,7 @@
 #         Based on plugin authored by Tsjippy
 #
 """
-<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.5.8" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
+<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.6.2" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
     <description>
         <h2>Domoticz Google Plugin</h2><br/>
         <h3>Key Features</h3>
@@ -318,13 +318,13 @@ class BasePlugin:
                     self.messageQueue.task_done()
                     break
 
-                Domoticz.Debug("handleMessage: "+Message)
-                os.system('curl -s -G "http://translate.google.com/translate_tts" --data "ie=UTF-8&total=1&idx=0&client=tw-ob&&tl='+Parameters["Language"]+'" --data-urlencode "q='+Message+'" -A "Mozilla" --compressed -o '+Parameters['HomeFolder']+'Messages/message.mp3')
+                Domoticz.Debug("handleMessage: '"+Message["Text"]+"', sent to '"+Message["Target"]+"'")
+                os.system('curl -s -G "http://translate.google.com/translate_tts" --data "ie=UTF-8&total=1&idx=0&client=tw-ob&&tl='+Parameters["Language"]+'" --data-urlencode "q='+Message["Text"]+'" -A "Mozilla" --compressed -o '+Parameters['HomeFolder']+'Messages/message.mp3')
                 
                 #import rpdb
                 #rpdb.set_trace()
                 for uuid in self.googleDevices:
-                    if (self.googleDevices[uuid].GoogleDevice.device.friendly_name == Parameters['Mode1']):
+                    if (self.googleDevices[uuid].GoogleDevice.device.friendly_name == Message["Target"]):
                         currentVolume = self.googleDevices[uuid].GoogleDevice.status.volume_level
                         self.googleDevices[uuid].GoogleDevice.quit_app()
                         self.googleDevices[uuid].GoogleDevice.set_volume(int(Parameters["Mode3"]) / 100)
@@ -357,7 +357,7 @@ class BasePlugin:
                 Domoticz.Debug("Discovery message seen from known device '"+googleDevice.device.friendly_name+"'")
             else:
                 self.googleDevices[uuid] = GoogleDevice(googleDevice.host, googleDevice.port, googleDevice)
-                Domoticz.Debug("Discovery message seen from '"+googleDevice.device.friendly_name+"', added: "+str(self.googleDevices[uuid]))
+                Domoticz.Debug("Discovery message seen from unknown device, added: "+str(self.googleDevices[uuid]))
 
                 createDomoticzDevice = True
                 maxUnitNo = 1
@@ -448,7 +448,7 @@ class BasePlugin:
         # Map Unit number back to underlying Google device
         uuid = Devices[Unit].DeviceID[:-2]
         subUnit = Devices[Unit].DeviceID[-2:]
-        self.googleDevices[uuid]
+        # self.googleDevices[uuid]
         Domoticz.Debug("UUID: "+str(uuid)+", sub unit: "+subUnit+", Action: "+action+", params: "+params)
 
         if (action == 'On'):
@@ -506,7 +506,9 @@ class BasePlugin:
                     if (Apps[App]['name'] == Parameters["Mode2"]["Audio"]):
                         self.googleDevices[uuid].GoogleDevice.start_app(Apps[App]['id'])
                         break
-        
+        elif (action == 'Sendnotification'):
+            self.messageQueue.put({"Target":self.googleDevices[uuid].GoogleDevice.device.friendly_name, "Text":params})
+
     def onHeartbeat(self):
         for uuid in self.googleDevices:
             if (self.googleDevices[uuid].Active):
@@ -514,7 +516,7 @@ class BasePlugin:
 
     def onNotification(self, Name, Subject, Text, Status, Priority, Sound, ImageFile):
         Domoticz.Debug("onNotification: " + Name + "," + Subject + "," + Text + "," + Status + "," + str(Priority) + "," + Sound + "," + ImageFile)
-        self.messageQueue.put(Text)
+        self.messageQueue.put({"Target":Parameters['Mode1'], "Text":Text})
 
     def onStop(self):
         self.messageQueue.put(None)

@@ -12,7 +12,9 @@ Controls multiple Google Chromecasts and Homes on your network.   Tested on Linu
 * Domoticz can control the Application selected
 * Domoticz can control the Volume including Mute/Unmute
 * Domoticz can control the playing media.  Play/Pause and skip forward and backwards
-* Google devices can be the targets of native Domoticz notifications. These are spoken through a chosen device (or audio group) in the language specified in Domoticz 
+* Google devices can be the targets of native Domoticz notifications in two different ways. Notifications are spoken in the language specified in Domoticz:
+	* As a normal notification, these are sent to the device identified in the 'Voice Device/Group' hardware parameter
+	* From a Domoticz event script targeting a specific device
 
 ## Installation
 
@@ -54,7 +56,7 @@ Nothing !
 | Log to file | When true, messages from Google devices are written to Messages.log in the Plugin's directory |
 | Debug | When true the logging level will be much higher to aid with troubleshooting |
 
-## Supported Commands
+## Supported Script Commands
 
 | Command | Information |
 | ----- | ---------- |
@@ -68,6 +70,7 @@ Nothing !
 | Video | Switch device to the selected Video App |
 | Audio | Switch device to the selected Audio App |
 | Off | For 'Volume' Device - Turns mute on, <br/>For 'Playing' Device - Pause playback |
+| SendNotifiction | Target device speaks the message text e.g. ```commandArray['Lounge Home'] = "SendNotification 'Hello'"``` |
 
 ## Change log
 
@@ -79,4 +82,5 @@ Nothing !
 | 1.3.5 | Initial voice message support. |
 | 1.4.8 | Bugfix: Google Home Icon zip had an error in it.<br/>Improved voice support, added volume option |
 | 1.5.3 | Bugfix: Plugin could hang during message handling, now does not wait forever.<br/>Messages are now spoken in the Domoticz UI language |
-| 1.5.8 | Spoken messages are now queued.<br/>Manual load of site packages |
+| 1.5.8 | Spoken messages are now queued.<br/>Manual load of site packages removed |
+| 1.6.2 | Added SendNotification support to Domoticz scripts |
