@@ -84,3 +84,4 @@ Nothing !
 | 1.5.3 | Bugfix: Plugin could hang during message handling, now does not wait forever.<br/>Messages are now spoken in the Domoticz UI language |
 | 1.5.8 | Spoken messages are now queued.<br/>Manual load of site packages removed |
 | 1.6.2 | Added SendNotification support to Domoticz scripts |
+| 1.7.2 | Made onHeartbeat check device is still connected |

@@ -7,7 +7,7 @@
 #         Based on plugin authored by Tsjippy
 #
 """
-<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.6.2" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
+<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.7.2" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
     <description>
         <h2>Domoticz Google Plugin</h2><br/>
         <h3>Key Features</h3>
@@ -157,6 +157,7 @@ class GoogleDevice:
                 Domoticz.Status(self.parent.Name+" is now: "+new_status.status)
                 if (new_status.status == "DISCONNECTED") or (new_status.status == "LOST") or (new_status.status == "FAILED"):
                     self.parent.Ready = False
+                    self.parent.Active = False
                 self.parent.syncDevices()
             except Exception as err:
                 Domoticz.Error("new_connection_status: "+str(err))
@@ -511,6 +512,7 @@ class BasePlugin:
 
     def onHeartbeat(self):
         for uuid in self.googleDevices:
+            self.googleDevices[uuid].GoogleDevice.socket_client._check_connection()
             if (self.googleDevices[uuid].Active):
                 self.googleDevices[uuid].syncDevices()
 
