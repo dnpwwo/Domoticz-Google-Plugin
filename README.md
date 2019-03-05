@@ -86,3 +86,4 @@ Nothing !
 | 1.6.2 | Added SendNotification support to Domoticz scripts |
 | 1.7.2 | Made onHeartbeat check device is still connected |
 | 1.8.9 | Simplified threading, removed 'double connection' issue |
+| 1.8.12 | Improved plugin shutdown on RPi |

@@ -7,7 +7,7 @@
 #         Based on plugin authored by Tsjippy
 #
 """
-<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.8.9" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
+<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.8.12" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
     <description>
         <h2>Domoticz Google Plugin</h2><br/>
         <h3>Key Features</h3>
@@ -293,20 +293,19 @@ class BasePlugin:
         self.messageThread = threading.Thread(name="GoogleNotify", target=BasePlugin.handleMessage, args=(self,))
 
     def handleMessage(self):
-        try:
-            Domoticz.Debug("Entering notification handler")
-            while True:
+        Domoticz.Debug("Entering notification handler")
+        while True:
+            try:
                 Message = self.messageQueue.get(block=True)
                 if Message is None:
-                    Domoticz.Debug("Exiting notification handler")
                     self.messageQueue.task_done()
                     break
 
                 Domoticz.Debug("handleMessage: '"+Message["Text"]+"', sent to '"+Message["Target"]+"'")
                 os.system('curl -s -G "http://translate.google.com/translate_tts" --data "ie=UTF-8&total=1&idx=0&client=tw-ob&&tl='+Parameters["Language"]+'" --data-urlencode "q='+Message["Text"]+'" -A "Mozilla" --compressed -o '+Parameters['HomeFolder']+'Messages/message.mp3')
                 
-                import rpdb
-                rpdb.set_trace()
+                #import rpdb
+                #rpdb.set_trace()
                 for uuid in self.googleDevices:
                     if (self.googleDevices[uuid].GoogleDevice.device.friendly_name == Message["Target"]):
                         currentVolume = self.googleDevices[uuid].GoogleDevice.status.volume_level
@@ -319,19 +318,19 @@ class BasePlugin:
                             time.sleep(0.5)
                             abortCounter = abortCounter - 1
                         while (self.googleDevices[uuid].GoogleDevice.status.display_name == 'Default Media Receiver') and (abortCounter > 0):
-                            Domoticz.Debug("Waiting for message to complete playing")
+                            #Domoticz.Debug("Waiting for message to complete playing")
                             time.sleep(0.5)
                             abortCounter = abortCounter - 1
                         self.googleDevices[uuid].GoogleDevice.set_volume(currentVolume)
                         self.googleDevices[uuid].GoogleDevice.quit_app()
                 if (abortCounter > 0):
-                    Domoticz.Log("Notification complete: "+Message)      
+                    Domoticz.Log("Notification to '"+Message["Text"]+"', sent to '"+Message["Target"]+"' complete")
                 else:
-                    Domoticz.Error("Notification timed out: "+Message)
-                
-                self.messageQueue.task_done()
-        except Exception as err:
-            Domoticz.Error("handleMessage: "+str(err))
+                    Domoticz.Error("Notification '"+Message["Text"]+"', sent to '"+Message["Target"]+"' timed out")
+            except Exception as err:
+                Domoticz.Error("handleMessage: "+str(err))
+            self.messageQueue.task_done()
+        Domoticz.Debug("Exiting notification handler")
     
     def discoveryCallback(self, googleDevice):
         global DEV_STATUS,DEV_VOLUME,DEV_PLAYING,DEV_SOURCE
@@ -501,9 +500,8 @@ class BasePlugin:
         self.messageQueue.put({"Target":Parameters['Mode1'], "Text":Text})
 
     def onStop(self):
+        Domoticz.Log("Clearing notification queue (approximate size "+str(self.messageQueue.qsize())+" entries)...")
         self.messageQueue.put(None)
-        Domoticz.Log("Clearing notification queue...")
-        self.messageQueue.join()
         
         for uuid in self.googleDevices:
             Domoticz.Log(self.googleDevices[uuid].Name+" Disconnecting...")
