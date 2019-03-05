@@ -7,37 +7,37 @@
 #         Based on plugin authored by Tsjippy
 #
 """
-<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.7.2" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
+<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.8.9" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
     <description>
         <h2>Domoticz Google Plugin</h2><br/>
         <h3>Key Features</h3>
         <ul style="list-style-type:square">
-            <li>Devices are discovered automatically and created in the Devices tab</li>
-            <li>Voice notifications can be sent to selected Google triggered by Domoticz notifications </li>
-            <li>When network connectivity is lost the Domoticz UI will optionally show the device(s) with Red banner</li>
-            <li>Device icons are created in Domoticz</li>
-            <li>Domoticz can control the Application selected</li>
-            <li>Domoticz can control the Volume including Mute/Unmute</li>
-            <li>Domoticz can control the playing media.  Play/Pause and skip forward and backwards</li>
-            <li>Google devices can be the targets of native Domoticz notifications. These are spoken through a chosen device (or audio group) in the language specified in Domoticz </li>
+            <li style="line-height:normal">Devices are discovered automatically and created in the Devices tab</li>
+            <li style="line-height:normal">Voice notifications can be sent to selected Google triggered by Domoticz notifications </li>
+            <li style="line-height:normal">When network connectivity is lost the Domoticz UI will optionally show the device(s) with Red banner</li>
+            <li style="line-height:normal">Device icons are created in Domoticz</li>
+            <li style="line-height:normal">Domoticz can control the Application selected</li>
+            <li style="line-height:normal">Domoticz can control the Volume including Mute/Unmute</li>
+            <li style="line-height:normal">Domoticz can control the playing media.  Play/Pause and skip forward and backwards</li>
+            <li style="line-height:normal">Google devices can be the targets of native Domoticz notifications. These are spoken through a chosen device (or audio group) in the language specified in Domoticz </li>
         </ul>
         <h3>Devices</h3>
         <ul style="list-style-type:square">
-            <li>Status - Basic status indicator, On/Off.</li>
-            <li>Volume - Icon mutes/unmutes, slider shows/sets volume</li>
-            <li>Source - Selector switch for content source (App)</li>
-            <li>Playing - Icon Pauses/Resumes, slider shows/sets percentage through media</li>
+            <li style="line-height:normal">Status - Basic status indicator, On/Off.</li>
+            <li style="line-height:normal">Volume - Icon mutes/unmutes, slider shows/sets volume</li>
+            <li style="line-height:normal">Source - Selector switch for content source (App)</li>
+            <li style="line-height:normal">Playing - Icon Pauses/Resumes, slider shows/sets percentage through media</li>
         </ul>
         <h3>Configuration</h3>
         <ul style="list-style-type:square">
-            <li>Preferred Video/Audio Apps - Application to select when scripts request 'Video' or 'Audio' mode from a script</li>
-            <li>Voice message volume - Volume to play messages (previous level will be restored afterwards)</li>
-            <li>Voice Device/Group - If specified device (or Audio Group) will receive audible notifications. 'Google_Devices' will appear as a notification target when editing any Domoticz device that supports Notifications</li>
-            <li>Voice message IP address - Required for voice messages, the external address of the Domoticz host</li>
-            <li>Voice message port - Required for voice messages, the port to use to serve the message to the Google device(s)</li>
-            <li>Time Out Lost Devices - When true, the devices in Domoitcz will have a red banner when network connectivity is lost</li>
-            <li>Log to file - When true, messages from Google devices are written to Messages.log in the Plugin's directory</li>
-            <li>Debug - When true the logging level will be much higher to aid with troubleshooting</li>
+            <li style="line-height:normal">Preferred Video/Audio Apps - Application to select when scripts request 'Video' or 'Audio' mode from a script</li>
+            <li style="line-height:normal">Voice message volume - Volume to play messages (previous level will be restored afterwards)</li>
+            <li style="line-height:normal">Voice Device/Group - If specified device (or Audio Group) will receive audible notifications. 'Google_Devices' will appear as a notification target when editing any Domoticz device that supports Notifications</li>
+            <li style="line-height:normal">Voice message IP address - Required for voice messages, the external address of the Domoticz host</li>
+            <li style="line-height:normal">Voice message port - Required for voice messages, the port to use to serve the message to the Google device(s)</li>
+            <li style="line-height:normal">Time Out Lost Devices - When true, the devices in Domoitcz will have a red banner when network connectivity is lost</li>
+            <li style="line-height:normal">Log to file - When true, messages from Google devices are written to Messages.log in the Plugin's directory</li>
+            <li style="line-height:normal">Debug - When true the logging level will be much higher to aid with troubleshooting</li>
         </ul>
     </description>
     <params>
@@ -120,9 +120,12 @@ class GoogleDevice:
         self.GoogleDevice = googleDevice
         self.Ready = False
         self.Active = False
-        self.Exit = False
-        self.Thread = None
-    
+        
+        googleDevice.register_status_listener(self.StatusListener(self))
+        googleDevice.media_controller.register_status_listener(self.StatusMediaListener(self))
+        googleDevice.register_connection_listener(self.ConnectionListener(self))
+        googleDevice.socket_client.start()
+
     class StatusListener:
         def __init__(self, parent):
             self.parent = parent
@@ -268,26 +271,6 @@ class GoogleDevice:
             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
             Domoticz.Error(str(exc_type)+", "+fname+", Line: "+str(exc_tb.tb_lineno))
 
-    def handleSocket(self):
-        try:
-            Domoticz.Debug(self.Name+" Started.")
-
-            self.GoogleDevice.register_status_listener(self.StatusListener(self))
-            self.GoogleDevice.media_controller.register_status_listener(self.StatusMediaListener(self))
-            self.GoogleDevice.register_connection_listener(self.ConnectionListener(self))
-
-            self.GoogleDevice.socket_client.start()
-            while not self.Exit:
-                time.sleep(0.25)
-                self.GoogleDevice.socket_client.run()
-                Domoticz.Log(self.Name+" Disconnected.")
-                self.Ready = False
-                self.syncDevices()
-            self.GoogleDevice.socket_client.disconnect()
-
-        except Exception as err:
-            Domoticz.Exception("handleSocket: "+str(err))
-    
     @property
     def VolumeUnit(self):
         global DEV_VOLUME
@@ -322,8 +305,8 @@ class BasePlugin:
                 Domoticz.Debug("handleMessage: '"+Message["Text"]+"', sent to '"+Message["Target"]+"'")
                 os.system('curl -s -G "http://translate.google.com/translate_tts" --data "ie=UTF-8&total=1&idx=0&client=tw-ob&&tl='+Parameters["Language"]+'" --data-urlencode "q='+Message["Text"]+'" -A "Mozilla" --compressed -o '+Parameters['HomeFolder']+'Messages/message.mp3')
                 
-                #import rpdb
-                #rpdb.set_trace()
+                import rpdb
+                rpdb.set_trace()
                 for uuid in self.googleDevices:
                     if (self.googleDevices[uuid].GoogleDevice.device.friendly_name == Message["Target"]):
                         currentVolume = self.googleDevices[uuid].GoogleDevice.status.volume_level
@@ -383,8 +366,6 @@ class BasePlugin:
                     else:
                         Domoticz.Error("Unsupported device type: '"+googleDevice.device.model_name+"'")
                 
-                self.googleDevices[uuid].Thread = threading.Thread(target=self.googleDevices[uuid].handleSocket)
-                self.googleDevices[uuid].Thread.start()
         except Exception as err:
             Domoticz.Exception("discoveryCallback: "+str(err))
 
@@ -512,7 +493,6 @@ class BasePlugin:
 
     def onHeartbeat(self):
         for uuid in self.googleDevices:
-            self.googleDevices[uuid].GoogleDevice.socket_client._check_connection()
             if (self.googleDevices[uuid].Active):
                 self.googleDevices[uuid].syncDevices()
 
@@ -526,11 +506,8 @@ class BasePlugin:
         self.messageQueue.join()
         
         for uuid in self.googleDevices:
-            if (self.googleDevices[uuid].Thread != None):
-                Domoticz.Log(self.googleDevices[uuid].Name+" Stopping...")
-                self.googleDevices[uuid].Exit = True
-                self.googleDevices[uuid].GoogleDevice.socket_client.stop.set()
-                self.googleDevices[uuid].Thread.join()
+            Domoticz.Log(self.googleDevices[uuid].Name+" Disconnecting...")
+            self.googleDevices[uuid].GoogleDevice.disconnect()
                 
         if (self.stopDiscovery != None):
             Domoticz.Log("Zeroconf Discovery Stopping...")

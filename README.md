@@ -85,3 +85,4 @@ Nothing !
 | 1.5.8 | Spoken messages are now queued.<br/>Manual load of site packages removed |
 | 1.6.2 | Added SendNotification support to Domoticz scripts |
 | 1.7.2 | Made onHeartbeat check device is still connected |
+| 1.8.9 | Simplified threading, removed 'double connection' issue |
