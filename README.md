@@ -69,6 +69,7 @@ Nothing !
 | Trigger &lt;URL&gt; | Start playing &lt;URL&gt; |
 | Video | Switch device to the selected Video App |
 | Audio | Switch device to the selected Audio App |
+| Quit | Quits the current application on the device |
 | Off | For 'Volume' Device - Turns mute on, <br/>For 'Playing' Device - Pause playback |
 | SendNotifiction | Target device speaks the message text e.g. ```commandArray['Lounge Home'] = "SendNotification 'Hello'"``` |
 
@@ -87,3 +88,4 @@ Nothing !
 | 1.7.2 | Made onHeartbeat check device is still connected |
 | 1.8.9 | Simplified threading, removed 'double connection' issue |
 | 1.8.12 | Improved plugin shutdown on RPi |
+| 1.9.1 | Added 'Quit' command |

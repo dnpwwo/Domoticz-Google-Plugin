@@ -7,7 +7,7 @@
 #         Based on plugin authored by Tsjippy
 #
 """
-<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.8.12" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
+<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.9.1" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
     <description>
         <h2>Domoticz Google Plugin</h2><br/>
         <h3>Key Features</h3>
@@ -238,7 +238,10 @@ class GoogleDevice:
                             if (self.GoogleDevice.media_controller.status.duration == None):
                                 sValue='0'
                             else:
-                                sValue=str(int((self.GoogleDevice.media_controller.status.adjusted_current_time / self.GoogleDevice.media_controller.status.duration)*100))
+                                try:
+                                    sValue=str(int((self.GoogleDevice.media_controller.status.adjusted_current_time / self.GoogleDevice.media_controller.status.duration)*100))
+                                except ZeroDivisionError as Err:
+                                    sValue="0"
                             if (self.GoogleDevice.media_controller.status.player_is_playing):
                                 nValue=2
                                 if (sValue=='0'): sValue='1'
@@ -489,6 +492,8 @@ class BasePlugin:
                         break
         elif (action == 'Sendnotification'):
             self.messageQueue.put({"Target":self.googleDevices[uuid].GoogleDevice.device.friendly_name, "Text":params})
+        elif (action == 'Quit'):
+            self.googleDevices[uuid].GoogleDevice.quit_app()
 
     def onHeartbeat(self):
         for uuid in self.googleDevices:
