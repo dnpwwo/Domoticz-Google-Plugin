@@ -4,10 +4,13 @@
 # New ones are added automatically and named using their friendly name
 #
 # Author: Dnpwwo, 2019
-#         Based on plugin authored by Tsjippy
+#         Based on the Domoticz plugin authored by Tsjippy (https://github.com/Tsjippy)
+#         Huge shout out to Paulus Shoutsen (https://github.com/balloob) for his pychromecast library that does all the hard work
+#         And Fred Clift (https://github.com/minektur) who wrote the initial communication layer
+#         Credit where it is due!
 #
 """
-<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.9.1" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
+<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.9.7" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
     <description>
         <h2>Domoticz Google Plugin</h2><br/>
         <h3>Key Features</h3>
@@ -369,12 +372,13 @@ class BasePlugin:
                         Domoticz.Error("Unsupported device type: '"+googleDevice.device.model_name+"'")
                 
         except Exception as err:
-            Domoticz.Exception("discoveryCallback: "+str(err))
+            Domoticz.Error("discoveryCallback: "+str(err))
 
     def onStart(self):
         if Parameters["Mode6"] != "0":
             Domoticz.Debugging(int(Parameters["Mode6"]))
             DumpConfigToLog()
+            Domoticz.Debug('PyChromeCast Version: '+pychromecast.__version__ )
 
         #import rpdb
         #rpdb.set_trace()
@@ -509,8 +513,11 @@ class BasePlugin:
         self.messageQueue.put(None)
         
         for uuid in self.googleDevices:
-            Domoticz.Log(self.googleDevices[uuid].Name+" Disconnecting...")
-            self.googleDevices[uuid].GoogleDevice.disconnect()
+            try:
+                Domoticz.Log(self.googleDevices[uuid].Name+" Disconnecting...")
+                self.googleDevices[uuid].GoogleDevice.disconnect(blocking=False)
+            except Exception as err:
+                Domoticz.Error("onStop: "+str(err))
                 
         if (self.stopDiscovery != None):
             Domoticz.Log("Zeroconf Discovery Stopping...")

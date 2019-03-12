@@ -89,3 +89,4 @@ Nothing !
 | 1.8.9 | Simplified threading, removed 'double connection' issue |
 | 1.8.12 | Improved plugin shutdown on RPi |
 | 1.9.1 | Added 'Quit' command |
+| 1.9.7 | Improved error handling |
