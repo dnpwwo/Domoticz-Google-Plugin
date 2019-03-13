@@ -10,7 +10,7 @@
 #         Credit where it is due!
 #
 """
-<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.9.7" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
+<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.9.8" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
     <description>
         <h2>Domoticz Google Plugin</h2><br/>
         <h3>Key Features</h3>
@@ -329,10 +329,10 @@ class BasePlugin:
                             abortCounter = abortCounter - 1
                         self.googleDevices[uuid].GoogleDevice.set_volume(currentVolume)
                         self.googleDevices[uuid].GoogleDevice.quit_app()
-                if (abortCounter > 0):
-                    Domoticz.Log("Notification to '"+Message["Text"]+"', sent to '"+Message["Target"]+"' complete")
-                else:
-                    Domoticz.Error("Notification '"+Message["Text"]+"', sent to '"+Message["Target"]+"' timed out")
+                        if (abortCounter > 0):
+                            Domoticz.Log("Notification to '"+Message["Text"]+"', sent to '"+Message["Target"]+"' complete")
+                        else:
+                            Domoticz.Error("Notification '"+Message["Text"]+"', sent to '"+Message["Target"]+"' timed out")
             except Exception as err:
                 Domoticz.Error("handleMessage: "+str(err))
             self.messageQueue.task_done()

@@ -90,3 +90,4 @@ Nothing !
 | 1.8.12 | Improved plugin shutdown on RPi |
 | 1.9.1 | Added 'Quit' command |
 | 1.9.7 | Improved error handling |
+| 1.9.8 | Bugfix: handleMessage error when device not in list |
