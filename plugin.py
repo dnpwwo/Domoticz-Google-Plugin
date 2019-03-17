@@ -10,7 +10,7 @@
 #         Credit where it is due!
 #
 """
-<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.9.8" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
+<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.10.2" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
     <description>
         <h2>Domoticz Google Plugin</h2><br/>
         <h3>Key Features</h3>
@@ -117,6 +117,7 @@ Apps={ APP_NONE:{'id':Consts.APP_BACKDROP , 'name':'Backdrop'}, 10:{'id':Consts.
 class GoogleDevice:
     def __init__(self, IP, Port, googleDevice):
         self.Name = googleDevice.device.friendly_name
+        self.Model = googleDevice.device.model_name
         self.IP = IP
         self.Port = Port
         self.UUID = str(googleDevice.device.uuid)
@@ -176,7 +177,7 @@ class GoogleDevice:
     def syncDevices(self):
         global APP_NONE,APP_OTHER
         try:
-            # find first device
+            # find relevant device
             for Unit in Devices:
                 if (Devices[Unit].DeviceID.find(self.UUID) >= 0):
                     nValue = Devices[Unit].nValue
@@ -271,6 +272,8 @@ class GoogleDevice:
                         if (Parameters["Mode4"] != "False"):
                             UpdateDevice(Unit, Devices[Unit].nValue, Devices[Unit].sValue, 1)
                    
+        except RuntimeError: # Suppress error message during start up when dictionary sizes can be changed by discovery thread
+            pass
         except Exception as err:
             Domoticz.Error("syncDevices: "+str(err))
             exc_type, exc_obj, exc_tb = sys.exc_info()
@@ -287,7 +290,7 @@ class GoogleDevice:
         return None
 
     def __str__(self):
-        return "'%s', UUID: '%s' + IP: '%s:%s'" % (self.Name, self.UUID, self.IP, self.Port)
+        return "'%s', Model: '%s', UUID: '%s' + IP: '%s:%s'" % (self.Name, self.Model, self.UUID, self.IP, self.Port)
 
 class BasePlugin:
     
@@ -358,7 +361,7 @@ class BasePlugin:
 
                 if (createDomoticzDevice):
                     logoType = Parameters['Key']+'Chromecast'
-                    if (googleDevice.device.model_name.find("Home") >= 0): logoType = Parameters['Key']+'HomeMini'
+                    if (googleDevice.device.model_name.find("Home") >= 0) or (googleDevice.device.model_name == "Google Cast Group"): logoType = Parameters['Key']+'HomeMini'
                     Domoticz.Log("Creating devices for '"+googleDevice.device.friendly_name+"' of type '"+googleDevice.device.model_name+"' in Domoticz, look in Devices tab.")
                     Domoticz.Device(Name=self.googleDevices[uuid].Name+" Status", Unit=maxUnitNo+1, Type=17, Switchtype=17, Image=Images[logoType].ID, DeviceID=uuid+DEV_STATUS, Description=googleDevice.device.model_name, Used=0).Create()
                     Domoticz.Device(Name=self.googleDevices[uuid].Name+" Volume", Unit=maxUnitNo+2, Type=244, Subtype=73, Switchtype=7, Image=8, DeviceID=uuid+DEV_VOLUME, Description=googleDevice.device.model_name, Used=0).Create()
@@ -366,10 +369,10 @@ class BasePlugin:
                     if (googleDevice.device.model_name.find("Chromecast") >= 0):
                         Options = {"LevelActions": "||||", "LevelNames": "Off|Spotify|Netflix|Youtube|Other", "LevelOffHidden": "false", "SelectorStyle": "0"}
                         Domoticz.Device(Name=self.googleDevices[uuid].Name+" Source",  Unit=maxUnitNo+4, TypeName="Selector Switch", Switchtype=18, Image=12, DeviceID=uuid+DEV_SOURCE, Description=googleDevice.device.model_name, Used=0, Options=Options).Create()
-                    elif (googleDevice.device.model_name.find("Google Home") >= 0):
+                    elif (googleDevice.device.model_name.find("Google Home") >= 0) or (googleDevice.device.model_name == "Google Cast Group"):
                         pass
                     else:
-                        Domoticz.Error("Unsupported device type: '"+googleDevice.device.model_name+"'")
+                        Domoticz.Error("Unsupported device type: "+str(self.googleDevices[uuid]))
                 
         except Exception as err:
             Domoticz.Error("discoveryCallback: "+str(err))
