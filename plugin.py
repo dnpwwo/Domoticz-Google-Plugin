@@ -10,7 +10,7 @@
 #         Credit where it is due!
 #
 """
-<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.11.1" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
+<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.11.4" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
     <description>
         <h2>Domoticz Google Plugin</h2><br/>
         <h3>Key Features</h3>
@@ -319,21 +319,25 @@ class BasePlugin:
                 #rpdb.set_trace()
                 for uuid in self.googleDevices:
                     if (self.googleDevices[uuid].GoogleDevice.device.friendly_name == Message["Target"]):
-                        currentVolume = self.googleDevices[uuid].GoogleDevice.status.volume_level
                         self.googleDevices[uuid].GoogleDevice.quit_app()
-                        self.googleDevices[uuid].GoogleDevice.set_volume(int(Parameters["Mode3"]) / 100)
-                        self.googleDevices[uuid].GoogleDevice.media_controller.play_media("http://"+Parameters["Address"]+":"+Parameters["Port"]+"/message.mp3", 'music/mp3')
-                        abortCounter = 20 # 10 seconds max wait
-                        while (self.googleDevices[uuid].GoogleDevice.status.display_name != 'Default Media Receiver') and (abortCounter > 0):
-                            Domoticz.Debug("Waiting for 'Default Media Receiver' to start")
-                            time.sleep(0.5)
-                            abortCounter = abortCounter - 1
-                        while (self.googleDevices[uuid].GoogleDevice.status.display_name == 'Default Media Receiver') and (abortCounter > 0):
-                            #Domoticz.Debug("Waiting for message to complete playing")
-                            time.sleep(0.5)
-                            abortCounter = abortCounter - 1
-                        self.googleDevices[uuid].GoogleDevice.set_volume(currentVolume)
-                        self.googleDevices[uuid].GoogleDevice.quit_app()
+                        if (self.googleDevices[uuid].GoogleDevice.status != None):
+                            currentVolume = self.googleDevices[uuid].GoogleDevice.status.volume_level
+                            self.googleDevices[uuid].GoogleDevice.set_volume(int(Parameters["Mode3"]) / 100)
+                            self.googleDevices[uuid].GoogleDevice.media_controller.play_media("http://"+Parameters["Address"]+":"+Parameters["Port"]+"/message.mp3", 'music/mp3')
+                            abortCounter = 20 # 10 seconds max wait
+                            while (self.googleDevices[uuid].GoogleDevice.status.display_name != 'Default Media Receiver') and (abortCounter > 0):
+                                Domoticz.Debug("Waiting for 'Default Media Receiver' to start")
+                                time.sleep(0.5)
+                                abortCounter = abortCounter - 1
+                            while (self.googleDevices[uuid].GoogleDevice.status.display_name == 'Default Media Receiver') and (abortCounter > 0):
+                                #Domoticz.Debug("Waiting for message to complete playing")
+                                time.sleep(0.5)
+                                abortCounter = abortCounter - 1
+                            self.googleDevices[uuid].GoogleDevice.set_volume(currentVolume)
+                            self.googleDevices[uuid].GoogleDevice.quit_app()
+                        else:
+                            self.googleDevices[uuid].GoogleDevice.media_controller.play_media("http://"+Parameters["Address"]+":"+Parameters["Port"]+"/message.mp3", 'music/mp3')
+                            
                         if (abortCounter > 0):
                             Domoticz.Log("Notification to '"+Message["Text"]+"', sent to '"+Message["Target"]+"' complete")
                         else:
