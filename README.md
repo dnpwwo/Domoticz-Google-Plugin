@@ -92,3 +92,4 @@ Nothing !
 | 1.9.7 | Improved error handling |
 | 1.9.8 | Bugfix: handleMessage error when device not in list |
 | 1.10.2 | Added initial support for Google Cast Groups |
+| 1.11.1 | Bugfix: Create Messages directory if required |
