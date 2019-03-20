@@ -77,15 +77,6 @@ Nothing !
 
 | Version | Information |
 | ----- | ---------- |
-| 1.0.0 | Initial upload version |
-| 1.1.2 | Actually functional (still WIP though). |
-| 1.2.1 | Added parameters. |
-| 1.3.5 | Initial voice message support. |
-| 1.4.8 | Bugfix: Google Home Icon zip had an error in it.<br/>Improved voice support, added volume option |
-| 1.5.3 | Bugfix: Plugin could hang during message handling, now does not wait forever.<br/>Messages are now spoken in the Domoticz UI language |
-| 1.5.8 | Spoken messages are now queued.<br/>Manual load of site packages removed |
-| 1.6.2 | Added SendNotification support to Domoticz scripts |
-| 1.7.2 | Made onHeartbeat check device is still connected |
 | 1.8.9 | Simplified threading, removed 'double connection' issue |
 | 1.8.12 | Improved plugin shutdown on RPi |
 | 1.9.1 | Added 'Quit' command |
@@ -93,3 +84,4 @@ Nothing !
 | 1.9.8 | Bugfix: handleMessage error when device not in list |
 | 1.10.2 | Added initial support for Google Cast Groups |
 | 1.11.4 | Bugfix: Create Messages directory if required<br/>Bugfix: Add handling for when device as no status during message playing |
+| 1.11.5 | Bugfix: Removed extraneous quotes from strings sent to google translate |
