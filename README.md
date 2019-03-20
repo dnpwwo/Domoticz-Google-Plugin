@@ -85,3 +85,4 @@ Nothing !
 | 1.10.2 | Added initial support for Google Cast Groups |
 | 1.11.4 | Bugfix: Create Messages directory if required<br/>Bugfix: Add handling for when device as no status during message playing |
 | 1.11.5 | Bugfix: Removed extraneous quotes from strings sent to google translate |
+| 1.12.1 | Improved spoken message completion |
