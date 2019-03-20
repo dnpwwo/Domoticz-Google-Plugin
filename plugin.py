@@ -10,7 +10,7 @@
 #         Credit where it is due!
 #
 """
-<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.11.4" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
+<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.11.5" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
     <description>
         <h2>Domoticz Google Plugin</h2><br/>
         <h3>Key Features</h3>
@@ -310,10 +310,12 @@ class BasePlugin:
                     self.messageQueue.task_done()
                     break
 
-                Domoticz.Debug("handleMessage: '"+Message["Text"]+"', sent to '"+Message["Target"]+"'")
                 if (not os.path.exists(Parameters['HomeFolder']+'Messages')):
                     os.mkdir(Parameters['HomeFolder']+'Messages')
-                os.system('curl -s -G "http://translate.google.com/translate_tts" --data "ie=UTF-8&total=1&idx=0&client=tw-ob&&tl='+Parameters["Language"]+'" --data-urlencode "q='+Message["Text"]+'" -A "Mozilla" --compressed -o '+Parameters['HomeFolder']+'Messages/message.mp3')
+                cleanText = Message["Text"].replace("'","")
+                cleanText = cleanText.replace('"','')
+                Domoticz.Debug("handleMessage: '"+cleanText+"', sent to '"+Message["Target"]+"'")
+                os.system('curl -s -G "http://translate.google.com/translate_tts" --data "ie=UTF-8&total=1&idx=0&client=tw-ob&&tl='+Parameters["Language"]+'" --data-urlencode "q='+cleanText+'" -A "Mozilla" --compressed -o '+Parameters['HomeFolder']+'Messages/message.mp3')
                 
                 #import rpdb
                 #rpdb.set_trace()
