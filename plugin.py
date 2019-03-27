@@ -10,7 +10,7 @@
 #         Credit where it is due!
 #
 """
-<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.12.1" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
+<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.13.1" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
     <description>
         <h2>Domoticz Google Plugin</h2><br/>
         <h3>Key Features</h3>
@@ -97,6 +97,7 @@
 </plugin>
 """
 import Domoticz
+
 import sys,os
 import threading
 import time
@@ -104,6 +105,13 @@ import json
 import queue
 import pychromecast
 import pychromecast.config as Consts
+try:
+    #from gtts import gTTS
+    voiceEnabled = True
+except Exception as err:
+    voiceEnabled = False
+    voiceError = str(err)
+
 
 DEV_STATUS  = "-1"
 DEV_VOLUME  = "-2"
@@ -298,8 +306,10 @@ class BasePlugin:
         self.googleDevices = {}
         self.stopDiscovery = None
         self.messageServer = None
-        self.messageQueue = queue.Queue()
-        self.messageThread = threading.Thread(name="GoogleNotify", target=BasePlugin.handleMessage, args=(self,))
+        self.messageQueue = None
+        if (voiceEnabled):
+            self.messageQueue = queue.Queue()
+            self.messageThread = threading.Thread(name="GoogleNotify", target=BasePlugin.handleMessage, args=(self,))
 
     def handleMessage(self):
         Domoticz.Debug("Entering notification handler")
@@ -312,13 +322,15 @@ class BasePlugin:
 
                 if (not os.path.exists(Parameters['HomeFolder']+'Messages')):
                     os.mkdir(Parameters['HomeFolder']+'Messages')
+                Domoticz.Debug("handleMessage: '"+Message["Text"]+"', to be sent to '"+Message["Target"]+"'")
+                
+                #tts = gTTS(Message["Text"],lang=Parameters["Language"])
+                #tts.save(Parameters['HomeFolder']+'Messages/message.mp3')
                 cleanText = Message["Text"].replace("'","")
                 cleanText = cleanText.replace('"','')
                 Domoticz.Debug("handleMessage: '"+cleanText+"', sent to '"+Message["Target"]+"'")
                 os.system('curl -s -G "http://translate.google.com/translate_tts" --data "ie=UTF-8&total=1&idx=0&client=tw-ob&&tl='+Parameters["Language"]+'" --data-urlencode "q='+cleanText+'" -A "Mozilla" --compressed -o '+Parameters['HomeFolder']+'Messages/message.mp3')
                 
-                #import rpdb
-                #rpdb.set_trace()
                 for uuid in self.googleDevices:
                     if (self.googleDevices[uuid].GoogleDevice.device.friendly_name == Message["Target"]):
                         self.googleDevices[uuid].GoogleDevice.quit_app()
@@ -326,25 +338,22 @@ class BasePlugin:
                             currentVolume = self.googleDevices[uuid].GoogleDevice.status.volume_level
                             self.googleDevices[uuid].GoogleDevice.set_volume(int(Parameters["Mode3"]) / 100)
                             mc = self.googleDevices[uuid].GoogleDevice.media_controller
-                            mc.play_media("http://"+Parameters["Address"]+":"+Parameters["Port"]+"/message.mp3", 'music/mp3')
-                            abortCounter = 20 # 10 seconds max wait
-                            while ((mc.status.player_state != 'PLAYING') or (self.googleDevices[uuid].GoogleDevice.status.display_name != 'Default Media Receiver')) and (abortCounter > 0):
-                                Domoticz.Debug("Waiting for 'Default Media Receiver' to start")
-                                time.sleep(0.5)
-                                abortCounter = abortCounter - 1
-                            while (mc.status.player_state == 'PLAYING') and (abortCounter > 0):
+                            mc.play_media("http://"+Parameters["Address"]+":"+Parameters["Port"]+"/message.mp3", 'audio/mp3')
+                            mc.block_until_active()
+                            time.sleep(1.0)
+                            endTime = time.time() + 60
+                            while (not mc.status.player_is_idle) and (time.time() < endTime):
                                 Domoticz.Debug("Waiting for message to complete playing")
                                 time.sleep(0.5)
-                                abortCounter = abortCounter - 1
                             self.googleDevices[uuid].GoogleDevice.set_volume(currentVolume)
                             self.googleDevices[uuid].GoogleDevice.quit_app()
                         else:
-                            self.googleDevices[uuid].GoogleDevice.media_controller.play_media("http://"+Parameters["Address"]+":"+Parameters["Port"]+"/message.mp3", 'music/mp3')
+                            self.googleDevices[uuid].GoogleDevice.media_controller.play_media("http://"+Parameters["Address"]+":"+Parameters["Port"]+"/message.mp3", 'audio/mp3')
                             
-                        if (abortCounter > 0):
-                            Domoticz.Log("Notification to '"+Message["Text"]+"', sent to '"+Message["Target"]+"' complete")
+                        if (time.time() < endTime):
+                            Domoticz.Log("Notification sent to '"+Message["Target"]+"' completed")
                         else:
-                            Domoticz.Error("Notification '"+Message["Text"]+"', sent to '"+Message["Target"]+"' timed out")
+                            Domoticz.Error("Notification sent to '"+Message["Target"]+"' timed out")
             except Exception as err:
                 Domoticz.Error("handleMessage: "+str(err))
             self.messageQueue.task_done()
@@ -392,8 +401,6 @@ class BasePlugin:
             DumpConfigToLog()
             Domoticz.Debug('PyChromeCast Version: '+pychromecast.__version__ )
 
-        #import rpdb
-        #rpdb.set_trace()
         Parameters["Mode2"] = json.loads(Parameters["Mode2"].replace('|','"'))
         
         if Parameters['Key']+'Chromecast' not in Images: Domoticz.Image('ChromecastUltra.zip').Create()
@@ -413,7 +420,10 @@ class BasePlugin:
         # Non-blocking asynchronous discovery, Nice !
         self.stopDiscovery = pychromecast.get_chromecasts(callback=self.discoveryCallback, blocking=False)
         
-        self.messageThread.start()
+        if (voiceEnabled):
+            self.messageThread.start()
+        else:
+            Domoticz.Error("'gtts' module import error: "+voiceError+": Voice notifications will not be enabled")
 
     def onMessage(self, Connection, Data):
         try:
@@ -507,7 +517,10 @@ class BasePlugin:
                         self.googleDevices[uuid].GoogleDevice.start_app(Apps[App]['id'])
                         break
         elif (action == 'Sendnotification'):
-            self.messageQueue.put({"Target":self.googleDevices[uuid].GoogleDevice.device.friendly_name, "Text":params})
+            if (self.messageQueue != None):
+                self.messageQueue.put({"Target":self.googleDevices[uuid].GoogleDevice.device.friendly_name, "Text":params})
+            else:
+                Domoticz.Error("Message queue not initialized, notification ignored.")
         elif (action == 'Quit'):
             self.googleDevices[uuid].GoogleDevice.quit_app()
 
@@ -518,11 +531,15 @@ class BasePlugin:
 
     def onNotification(self, Name, Subject, Text, Status, Priority, Sound, ImageFile):
         Domoticz.Debug("onNotification: " + Name + "," + Subject + "," + Text + "," + Status + "," + str(Priority) + "," + Sound + "," + ImageFile)
-        self.messageQueue.put({"Target":Parameters['Mode1'], "Text":Text})
+        if (self.messageQueue != None):
+            self.messageQueue.put({"Target":Parameters['Mode1'], "Text":Text})
+        else:
+            Domoticz.Error("Message queue not initialized, notification ignored.")
 
     def onStop(self):
-        Domoticz.Log("Clearing notification queue (approximate size "+str(self.messageQueue.qsize())+" entries)...")
-        self.messageQueue.put(None)
+        if (self.messageQueue != None):
+            Domoticz.Log("Clearing notification queue (approximate size "+str(self.messageQueue.qsize())+" entries)...")
+            self.messageQueue.put(None)
         
         for uuid in self.googleDevices:
             try:
