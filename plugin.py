@@ -10,7 +10,7 @@
 #         Credit where it is due!
 #
 """
-<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.13.1" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
+<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.14.7" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
     <description>
         <h2>Domoticz Google Plugin</h2><br/>
         <h3>Key Features</h3>
@@ -106,12 +106,13 @@ import queue
 import pychromecast
 import pychromecast.config as Consts
 try:
-    #from gtts import gTTS
+    from gtts import gTTS
     voiceEnabled = True
 except Exception as err:
     voiceEnabled = False
     voiceError = str(err)
 
+KB_TO_XMIT = 1024 * 16
 
 DEV_STATUS  = "-1"
 DEV_VOLUME  = "-2"
@@ -136,7 +137,7 @@ class GoogleDevice:
         googleDevice.register_status_listener(self.StatusListener(self))
         googleDevice.media_controller.register_status_listener(self.StatusMediaListener(self))
         googleDevice.register_connection_listener(self.ConnectionListener(self))
-        googleDevice.socket_client.start()
+        googleDevice.start()
 
     class StatusListener:
         def __init__(self, parent):
@@ -307,6 +308,7 @@ class BasePlugin:
         self.stopDiscovery = None
         self.messageServer = None
         self.messageQueue = None
+        self.messageConnection = None
         if (voiceEnabled):
             self.messageQueue = queue.Queue()
             self.messageThread = threading.Thread(name="GoogleNotify", target=BasePlugin.handleMessage, args=(self,))
@@ -324,12 +326,12 @@ class BasePlugin:
                     os.mkdir(Parameters['HomeFolder']+'Messages')
                 Domoticz.Debug("handleMessage: '"+Message["Text"]+"', to be sent to '"+Message["Target"]+"'")
                 
-                #tts = gTTS(Message["Text"],lang=Parameters["Language"])
-                #tts.save(Parameters['HomeFolder']+'Messages/message.mp3')
-                cleanText = Message["Text"].replace("'","")
-                cleanText = cleanText.replace('"','')
-                Domoticz.Debug("handleMessage: '"+cleanText+"', sent to '"+Message["Target"]+"'")
-                os.system('curl -s -G "http://translate.google.com/translate_tts" --data "ie=UTF-8&total=1&idx=0&client=tw-ob&&tl='+Parameters["Language"]+'" --data-urlencode "q='+cleanText+'" -A "Mozilla" --compressed -o '+Parameters['HomeFolder']+'Messages/message.mp3')
+                tts = gTTS(Message["Text"],lang=Parameters["Language"])
+                tts.save(Parameters['HomeFolder']+'Messages/message.mp3')
+                #cleanText = Message["Text"].replace("'","")
+                #cleanText = cleanText.replace('"','')
+                #Domoticz.Debug("handleMessage: '"+cleanText+"', sent to '"+Message["Target"]+"'")
+                #os.system('curl -s -G "http://translate.google.com/translate_tts" --data "ie=UTF-8&total=1&idx=0&client=tw-ob&&tl='+Parameters["Language"]+'" --data-urlencode "q='+cleanText+'" -A "Mozilla" --compressed -o '+Parameters['HomeFolder']+'Messages/message.mp3')
                 
                 for uuid in self.googleDevices:
                     if (self.googleDevices[uuid].GoogleDevice.device.friendly_name == Message["Target"]):
@@ -341,9 +343,12 @@ class BasePlugin:
                             mc.play_media("http://"+Parameters["Address"]+":"+Parameters["Port"]+"/message.mp3", 'audio/mp3')
                             mc.block_until_active()
                             time.sleep(1.0)
-                            endTime = time.time() + 60
+                            endTime = time.time() + 70
+                            while (mc.status.player_is_idle) and (time.time() < endTime):
+                                Domoticz.Debug("Waiting for player (timeout in "+str(endTime - time.time())+" seconds)")
+                                time.sleep(0.5)
                             while (not mc.status.player_is_idle) and (time.time() < endTime):
-                                Domoticz.Debug("Waiting for message to complete playing")
+                                Domoticz.Debug("Waiting for message to complete playing (timeout in "+str(endTime - time.time())+" seconds)")
                                 time.sleep(0.5)
                             self.googleDevices[uuid].GoogleDevice.set_volume(currentVolume)
                             self.googleDevices[uuid].GoogleDevice.quit_app()
@@ -426,24 +431,49 @@ class BasePlugin:
             Domoticz.Error("'gtts' module import error: "+voiceError+": Voice notifications will not be enabled")
 
     def onMessage(self, Connection, Data):
+    
+        messageFile = None
         try:
-            Domoticz.Debug("onMessage called from: "+Connection.Address+":"+Connection.Port)
-
-            if (not 'URL' in Data):
-                Domoticz.Error("Invalid we request received, no URL present")
+            headerCode = "200 OK"
+            if (not 'Verb' in Data):
+                Domoticz.Error("Invalid web request received, no Verb present")
+                headerCode = "400 Bad Request"
+            elif (Data['Verb'] != 'GET'):
+                Domoticz.Error("Invalid web request received, no only GET requests allowed")
+                headerCode = "405 Method Not Allowed"
+            elif (not 'URL' in Data):
+                Domoticz.Error("Invalid web request received, no URL present")
+                headerCode = "400 Bad Request"
+            elif (not 'Headers' in Data):
+                Domoticz.Error("Invalid web request received, no Headers present")
+                headerCode = "400 Bad Request"
+            elif (not 'Range' in Data['Headers']):
+                Domoticz.Error("Invalid web request received, no Range header present")
+                headerCode = "400 Bad Request"
+            
+            if (headerCode != "200 OK"):
                 DumpHTTPResponseToLog(Data)
-                return
-
-            with open(Parameters["HomeFolder"]+"Messages"+Data["URL"], mode='rb') as file:
-                fileContent = file.read()
-            Domoticz.Debug("Read "+str(len(fileContent))+" bytes of data into variable of type: "+str(type(fileContent)))
-
-            Connection.Send({"Status":"200 OK", "Headers": {"Content-Type": "music/mp3"}, "Data": fileContent})
-
+                Connection.Send({"Status": "400 Bad Request"})
+            else:
+                # 'Range':'bytes=0-'
+                range = Data['Headers']['Range']
+                fileStartPosition = int(range[range.find('=')+1:range.find('-')])
+                Domoticz.Debug("Servicing 'GET' request file '"+Data['URL']+"' from position "+str(fileStartPosition))
+                messageFileName = Parameters['HomeFolder']+'Messages'+Data['URL']
+                messageFileSize = os.path.getsize(messageFileName)
+                messageFile = open(messageFileName, mode='rb')
+                messageFile.seek(fileStartPosition)
+                fileContent = messageFile.read(KB_TO_XMIT)
+                if (len(fileContent) == KB_TO_XMIT):
+                    headerCode = "206 Partial Content"
+                Connection.Send({"Status":headerCode, "Headers": {"Content-Type": "audio/mp3", "Content-Range": "bytes "+str(fileStartPosition)+"-"+str(messageFile.tell())+"/"+str(messageFileSize)}, "Data":fileContent})
+                
         except Exception as inst:
             Domoticz.Error("Exception detail: '"+str(inst)+"'")
             DumpHTTPResponseToLog(Data)
-            raise
+            
+        if (messageFile != None):
+            messageFile.close()
 
     def onCommand(self, Unit, Command, Level, Hue):
         global DEV_STATUS,DEV_VOLUME,DEV_PLAYING,DEV_SOURCE
@@ -536,6 +566,11 @@ class BasePlugin:
         else:
             Domoticz.Error("Message queue not initialized, notification ignored.")
 
+    def onDisconnect(self, Connection):
+        if (Connection == self.messageConnection):
+            self.messageConnection = None
+            Domoticz.Error("Message connection was disconnected prematurely.")
+            
     def onStop(self):
         if (self.messageQueue != None):
             Domoticz.Log("Clearing notification queue (approximate size "+str(self.messageQueue.qsize())+" entries)...")
@@ -581,6 +616,10 @@ def onCommand(Unit, Command, Level, Hue):
 def onHeartbeat():
     global _plugin
     _plugin.onHeartbeat()
+
+def onDisconnect(Connection):
+    global _plugin
+    _plugin.onDisconnect(Connection)
 
 def onNotification(Name, Subject, Text, Status, Priority, Sound, ImageFile):
     global _plugin

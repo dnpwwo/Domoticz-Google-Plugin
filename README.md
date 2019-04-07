@@ -22,7 +22,8 @@ Python version 3.4 or higher required & a 2019 version of Domoticz (for voice to
 
 To install:
 * Go in your Domoticz directory using a command line and open the plugins directory.
-* Run ```sudo pip3 install pychromecast```
+* Run ```sudo pip3 install pychromecast``` should be version 3.2.0 or greater
+* Run ```sudo pip3 install gtts```
 * Run: ```git clone https://github.com/dnpwwo/Domoticz-Google-Plugin.git```
 * Restart Domoticz.
 
@@ -49,7 +50,7 @@ Nothing !
 | ----- | ---------- |
 | Preferred Video/Audio Apps | Application to select when scripts request 'Video' or 'Audio' mode |
 | Voice message volume | Volume to play messages (previous level will be restored afterwards) |
-| Voice Device/Group | If specified device (or Audio Group) will receive audible notifications. 'Google_Devices' will appear as a notification target when editing any Domoticz device that supports Notifications |
+| Voice Device/Group | If specified device (or Audio Group) will receive audible notifications. The is the device's 'friendly name' as seen via the Google Home App. 'Google_Devices' will appear as a notification target when editing any Domoticz device that supports Notifications |
 | Voice message IP address | Required for voice messages, the external address of the Domoticz host |
 | Voice message port | Required for voice messages, the port to use to serve the message to the Google device(s) |
 | Time Out Lost Devices | When true, the devices in Domoitcz will have a red banner when network connectivity is lost |
@@ -87,3 +88,4 @@ Nothing !
 | 1.11.5 | Bugfix: Removed extraneous quotes from strings sent to google translate |
 | 1.12.1 | Improved spoken message completion |
 | 1.13.1 | Bugfix: Plugin now waits for voice playback correctly |
+| 1.14.7 | Bugfix: Long media file now play |
