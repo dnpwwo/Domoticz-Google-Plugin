@@ -78,10 +78,6 @@ Nothing !
 
 | Version | Information |
 | ----- | ---------- |
-| 1.8.9 | Simplified threading, removed 'double connection' issue |
-| 1.8.12 | Improved plugin shutdown on RPi |
-| 1.9.1 | Added 'Quit' command |
-| 1.9.7 | Improved error handling |
 | 1.9.8 | Bugfix: handleMessage error when device not in list |
 | 1.10.2 | Added initial support for Google Cast Groups |
 | 1.11.4 | Bugfix: Create Messages directory if required<br/>Bugfix: Add handling for when device as no status during message playing |
@@ -89,3 +85,4 @@ Nothing !
 | 1.12.1 | Improved spoken message completion |
 | 1.13.1 | Bugfix: Plugin now waits for voice playback correctly |
 | 1.14.7 | Bugfix: Long media file now play |
+| 1.15.3 | Improved logging during mp3 transfer |

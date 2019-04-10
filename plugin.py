@@ -10,7 +10,7 @@
 #         Credit where it is due!
 #
 """
-<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.14.7" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
+<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.15.3" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
     <description>
         <h2>Domoticz Google Plugin</h2><br/>
         <h3>Key Features</h3>
@@ -308,7 +308,6 @@ class BasePlugin:
         self.stopDiscovery = None
         self.messageServer = None
         self.messageQueue = None
-        self.messageConnection = None
         if (voiceEnabled):
             self.messageQueue = queue.Queue()
             self.messageThread = threading.Thread(name="GoogleNotify", target=BasePlugin.handleMessage, args=(self,))
@@ -419,13 +418,12 @@ class BasePlugin:
         if Parameters["Mode1"] != "":
             Domoticz.Notifier("Google_Devices")
 
-        self.messageServer = Domoticz.Connection(Name="Message Server", Transport="TCP/IP", Protocol="HTTP", Port=Parameters["Port"])
-        self.messageServer.Listen()
-
         # Non-blocking asynchronous discovery, Nice !
         self.stopDiscovery = pychromecast.get_chromecasts(callback=self.discoveryCallback, blocking=False)
         
         if (voiceEnabled):
+            self.messageServer = Domoticz.Connection(Name="Message Server", Transport="TCP/IP", Protocol="HTTP", Port=Parameters["Port"])
+            self.messageServer.Listen()
             self.messageThread.start()
         else:
             Domoticz.Error("'gtts' module import error: "+voiceError+": Voice notifications will not be enabled")
@@ -439,7 +437,7 @@ class BasePlugin:
                 Domoticz.Error("Invalid web request received, no Verb present")
                 headerCode = "400 Bad Request"
             elif (Data['Verb'] != 'GET'):
-                Domoticz.Error("Invalid web request received, no only GET requests allowed")
+                Domoticz.Error("Invalid web request received, only GET requests allowed ("+Data['Verb']+")")
                 headerCode = "405 Method Not Allowed"
             elif (not 'URL' in Data):
                 Domoticz.Error("Invalid web request received, no URL present")
@@ -450,15 +448,18 @@ class BasePlugin:
             elif (not 'Range' in Data['Headers']):
                 Domoticz.Error("Invalid web request received, no Range header present")
                 headerCode = "400 Bad Request"
+            elif (not os.path.exists(Parameters['HomeFolder']+'Messages'+Data['URL'])):
+                Domoticz.Error("Invalid web request received, file '"+Parameters['HomeFolder']+'Messages'+Data['URL']+"' does not exist")
+                headerCode = "404 File Not Found"
             
             if (headerCode != "200 OK"):
                 DumpHTTPResponseToLog(Data)
-                Connection.Send({"Status": "400 Bad Request"})
+                Connection.Send({"Status": headerCode})
             else:
                 # 'Range':'bytes=0-'
                 range = Data['Headers']['Range']
                 fileStartPosition = int(range[range.find('=')+1:range.find('-')])
-                Domoticz.Debug("Servicing 'GET' request file '"+Data['URL']+"' from position "+str(fileStartPosition))
+                Domoticz.Debug(Connection.Address+":"+Connection.Port+" Sent 'GET' request file '"+Data['URL']+"' from position "+str(fileStartPosition))
                 messageFileName = Parameters['HomeFolder']+'Messages'+Data['URL']
                 messageFileSize = os.path.getsize(messageFileName)
                 messageFile = open(messageFileName, mode='rb')
@@ -566,10 +567,11 @@ class BasePlugin:
         else:
             Domoticz.Error("Message queue not initialized, notification ignored.")
 
+    def onConnect(self, Connection, Status, Description):
+        Domoticz.Debug(Connection.Address+":"+Connection.Port+" Connection established")
+            
     def onDisconnect(self, Connection):
-        if (Connection == self.messageConnection):
-            self.messageConnection = None
-            Domoticz.Error("Message connection was disconnected prematurely.")
+        Domoticz.Debug(Connection.Address+":"+Connection.Port+" Connection disconnected")
             
     def onStop(self):
         if (self.messageQueue != None):
@@ -616,6 +618,10 @@ def onCommand(Unit, Command, Level, Hue):
 def onHeartbeat():
     global _plugin
     _plugin.onHeartbeat()
+
+def onConnect(Connection, Status, Description):
+    global _plugin
+    _plugin.onConnect(Connection, Status, Description)
 
 def onDisconnect(Connection):
     global _plugin
