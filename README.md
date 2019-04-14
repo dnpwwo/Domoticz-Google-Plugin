@@ -72,13 +72,12 @@ Nothing !
 | Audio | Switch device to the selected Audio App |
 | Quit | Quits the current application on the device |
 | Off | For 'Volume' Device - Turns mute on, <br/>For 'Playing' Device - Pause playback |
-| SendNotifiction | Target device speaks the message text e.g. ```commandArray['Lounge Home'] = "SendNotification 'Hello'"``` |
+| SendNotifiction | Target device speaks the message text e.g. ```commandArray['Lounge Home'] = "SendNotification Good morning"``` |
 
 ## Change log
 
 | Version | Information |
 | ----- | ---------- |
-| 1.9.8 | Bugfix: handleMessage error when device not in list |
 | 1.10.2 | Added initial support for Google Cast Groups |
 | 1.11.4 | Bugfix: Create Messages directory if required<br/>Bugfix: Add handling for when device as no status during message playing |
 | 1.11.5 | Bugfix: Removed extraneous quotes from strings sent to google translate |
@@ -86,3 +85,4 @@ Nothing !
 | 1.13.1 | Bugfix: Plugin now waits for voice playback correctly |
 | 1.14.7 | Bugfix: Long media file now play |
 | 1.15.3 | Improved logging during mp3 transfer |
+| 1.16.13 | Bugfix: Handle groups changing 'elected leader' |

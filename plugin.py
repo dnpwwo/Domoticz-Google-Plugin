@@ -10,7 +10,7 @@
 #         Credit where it is due!
 #
 """
-<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.15.3" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
+<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.16.13" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
     <description>
         <h2>Domoticz Google Plugin</h2><br/>
         <h3>Key Features</h3>
@@ -133,6 +133,7 @@ class GoogleDevice:
         self.GoogleDevice = googleDevice
         self.Ready = False
         self.Active = False
+        self.LogToFile("Google device created: "+str(self))
         
         googleDevice.register_status_listener(self.StatusListener(self))
         googleDevice.media_controller.register_status_listener(self.StatusMediaListener(self))
@@ -170,7 +171,7 @@ class GoogleDevice:
         def new_connection_status(self, new_status):
             try:
                 self.parent.LogToFile(new_status)
-                Domoticz.Status(self.parent.Name+" is now: "+new_status.status)
+                Domoticz.Status(self.parent.Name+" is now: "+str(new_status))
                 if (new_status.status == "DISCONNECTED") or (new_status.status == "LOST") or (new_status.status == "FAILED"):
                     self.parent.Ready = False
                     self.parent.Active = False
@@ -180,7 +181,7 @@ class GoogleDevice:
                 Domoticz.Error("new_connection_status: "+str(new_status))
 
     def LogToFile(self, status):
-        if (Parameters["Mode5"] != "False"):
+        if (Parameters["Mode5"] != "False") and (status != None):
             print(time.strftime('%Y-%m-%d %H:%M:%S')+" ["+self.Name+"] "+str(status), file=open(Parameters["HomeFolder"]+"Messages.log", "a"))
         
     def syncDevices(self):
@@ -368,33 +369,36 @@ class BasePlugin:
         try:
             uuid = str(googleDevice.device.uuid)
             if (uuid in self.googleDevices):
-                Domoticz.Debug("Discovery message seen from known device '"+googleDevice.device.friendly_name+"'")
-            else:
-                self.googleDevices[uuid] = GoogleDevice(googleDevice.host, googleDevice.port, googleDevice)
-                Domoticz.Debug("Discovery message seen from unknown device, added: "+str(self.googleDevices[uuid]))
+                # Happens for groups when 'elected leader' changes
+                self.googleDevices[uuid].LogToFile("Discovery message seen. Current address: "+self.googleDevices[uuid].IP+":"+str(self.googleDevices[uuid].Port)+", New address: "+googleDevice.host+":"+str(googleDevice.port))
+                self.googleDevices[uuid].GoogleDevice.disconnect()
+                self.googleDevices[uuid].GoogleDevice = None
+                del self.googleDevices[uuid]
 
-                createDomoticzDevice = True
-                maxUnitNo = 1
-                for Device in Devices:
-                    if (Devices[Device].Unit > maxUnitNo): maxUnitNo = Devices[Device].Unit
-                    if (Devices[Device].DeviceID.find(uuid) >= 0):
-                        createDomoticzDevice = False
-                        UpdateDevice(Devices[Device].Unit, Devices[Device].nValue, Devices[Device].sValue, 0)
+            self.googleDevices[uuid] = GoogleDevice(googleDevice.host, googleDevice.port, googleDevice)
 
-                if (createDomoticzDevice):
-                    logoType = Parameters['Key']+'Chromecast'
-                    if (googleDevice.device.model_name.find("Home") >= 0) or (googleDevice.device.model_name == "Google Cast Group"): logoType = Parameters['Key']+'HomeMini'
-                    Domoticz.Log("Creating devices for '"+googleDevice.device.friendly_name+"' of type '"+googleDevice.device.model_name+"' in Domoticz, look in Devices tab.")
-                    Domoticz.Device(Name=self.googleDevices[uuid].Name+" Status", Unit=maxUnitNo+1, Type=17, Switchtype=17, Image=Images[logoType].ID, DeviceID=uuid+DEV_STATUS, Description=googleDevice.device.model_name, Used=0).Create()
-                    Domoticz.Device(Name=self.googleDevices[uuid].Name+" Volume", Unit=maxUnitNo+2, Type=244, Subtype=73, Switchtype=7, Image=8, DeviceID=uuid+DEV_VOLUME, Description=googleDevice.device.model_name, Used=0).Create()
-                    Domoticz.Device(Name=self.googleDevices[uuid].Name+" Playing", Unit=maxUnitNo+3, Type=244, Subtype=73, Switchtype=7, Image=12, DeviceID=uuid+DEV_PLAYING, Description=googleDevice.device.model_name, Used=0).Create()
-                    if (googleDevice.device.model_name.find("Chromecast") >= 0):
-                        Options = {"LevelActions": "||||", "LevelNames": "Off|Spotify|Netflix|Youtube|Other", "LevelOffHidden": "false", "SelectorStyle": "0"}
-                        Domoticz.Device(Name=self.googleDevices[uuid].Name+" Source",  Unit=maxUnitNo+4, TypeName="Selector Switch", Switchtype=18, Image=12, DeviceID=uuid+DEV_SOURCE, Description=googleDevice.device.model_name, Used=0, Options=Options).Create()
-                    elif (googleDevice.device.model_name.find("Google Home") >= 0) or (googleDevice.device.model_name == "Google Cast Group"):
-                        pass
-                    else:
-                        Domoticz.Error("Unsupported device type: "+str(self.googleDevices[uuid]))
+            createDomoticzDevice = True
+            maxUnitNo = 1
+            for Device in Devices:
+                if (Devices[Device].Unit > maxUnitNo): maxUnitNo = Devices[Device].Unit
+                if (Devices[Device].DeviceID.find(uuid) >= 0):
+                    createDomoticzDevice = False
+                    UpdateDevice(Devices[Device].Unit, Devices[Device].nValue, Devices[Device].sValue, 0)
+
+            if (createDomoticzDevice):
+                logoType = Parameters['Key']+'Chromecast'
+                if (googleDevice.device.model_name.find("Home") >= 0) or (googleDevice.device.model_name == "Google Cast Group"): logoType = Parameters['Key']+'HomeMini'
+                Domoticz.Log("Creating devices for '"+googleDevice.device.friendly_name+"' of type '"+googleDevice.device.model_name+"' in Domoticz, look in Devices tab.")
+                Domoticz.Device(Name=self.googleDevices[uuid].Name+" Status", Unit=maxUnitNo+1, Type=17, Switchtype=17, Image=Images[logoType].ID, DeviceID=uuid+DEV_STATUS, Description=googleDevice.device.model_name, Used=0).Create()
+                Domoticz.Device(Name=self.googleDevices[uuid].Name+" Volume", Unit=maxUnitNo+2, Type=244, Subtype=73, Switchtype=7, Image=8, DeviceID=uuid+DEV_VOLUME, Description=googleDevice.device.model_name, Used=0).Create()
+                Domoticz.Device(Name=self.googleDevices[uuid].Name+" Playing", Unit=maxUnitNo+3, Type=244, Subtype=73, Switchtype=7, Image=12, DeviceID=uuid+DEV_PLAYING, Description=googleDevice.device.model_name, Used=0).Create()
+                if (googleDevice.device.model_name.find("Chromecast") >= 0):
+                    Options = {"LevelActions": "||||", "LevelNames": "Off|Spotify|Netflix|Youtube|Other", "LevelOffHidden": "false", "SelectorStyle": "0"}
+                    Domoticz.Device(Name=self.googleDevices[uuid].Name+" Source",  Unit=maxUnitNo+4, TypeName="Selector Switch", Switchtype=18, Image=12, DeviceID=uuid+DEV_SOURCE, Description=googleDevice.device.model_name, Used=0, Options=Options).Create()
+                elif (googleDevice.device.model_name.find("Google Home") >= 0) or (googleDevice.device.model_name == "Google Cast Group"):
+                    pass
+                else:
+                    Domoticz.Error("Unsupported device type: "+str(self.googleDevices[uuid]))
                 
         except Exception as err:
             Domoticz.Error("discoveryCallback: "+str(err))
@@ -590,10 +594,11 @@ class BasePlugin:
             self.stopDiscovery()
             
         Domoticz.Log("Threads still active: "+str(threading.active_count())+", should be 1.")
-        while (threading.active_count() > 1):
+        endTime = time.time() + 70
+        while (threading.active_count() > 1) and (time.time() < endTime):
             for thread in threading.enumerate():
                 if (thread.name != threading.current_thread().name):
-                    Domoticz.Log("'"+thread.name+"' is still running, waiting otherwise Domoticz will crash on plugin exit.")
+                    Domoticz.Log("'"+thread.name+"' is still running (timeout in "+str(int(endTime - time.time()))+" seconds)")
             time.sleep(1.0)
 
 global _plugin
