@@ -10,7 +10,7 @@
 #         Credit where it is due!
 #
 """
-<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.16.13" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
+<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.18.13" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
     <description>
         <h2>Domoticz Google Plugin</h2><br/>
         <h3>Key Features</h3>
@@ -123,6 +123,10 @@ APP_NONE=0
 APP_OTHER=40
 Apps={ APP_NONE:{'id':Consts.APP_BACKDROP , 'name':'Backdrop'}, 10:{'id':Consts.APP_SPOTIFY, 'name':'Spotify'}, 20:{'id':'CA5E8412', 'name':'Netflix'}, 30:{'id':Consts.APP_YOUTUBE , 'name':'Youtube'}, APP_OTHER:{'id':'', 'name':'Other'}    }
 
+# Language overrides for when Domoticz language does not line up with Google translate
+# Dictionary should contain Domoticz language string as key and language string to be used e.g {"nl":"nl-NL"}
+langOverride = {}
+
 class GoogleDevice:
     def __init__(self, IP, Port, googleDevice):
         self.Name = googleDevice.device.friendly_name
@@ -135,95 +139,99 @@ class GoogleDevice:
         self.Active = False
         self.LogToFile("Google device created: "+str(self))
         
-        googleDevice.register_status_listener(self.StatusListener(self))
-        googleDevice.media_controller.register_status_listener(self.StatusMediaListener(self))
+        googleDevice.register_status_listener(self.CastStatusListener(self))
+        googleDevice.media_controller.register_status_listener(self.MediaStatusListener(self))
         googleDevice.register_connection_listener(self.ConnectionListener(self))
         googleDevice.start()
 
-    class StatusListener:
+    class CastStatusListener:
         def __init__(self, parent):
             self.parent = parent
 
         def new_cast_status(self, status):
+            #2019-04-20 11:50:53 [Lounge Speaker] CastStatus(is_active_input=False, is_stand_by=True, volume_level=0.5049999952316284, volume_muted=False, app_id=None, display_name=None, namespaces=[], session_id=None, transport_id=None, status_text='')
             try:
+                if (status==None): return
+
                 self.parent.LogToFile(status)
                 self.parent.Ready = True
-                self.parent.syncDevices()
+
+                for Unit in Devices:
+                    if (Devices[Unit].DeviceID.find(self.parent.UUID+DEV_STATUS) >= 0):
+                        if  (status.display_name == None):
+                            self.Active = False
+                            nValue = 0
+                            sValue = ''
+                            UpdateDevice(Unit, nValue,  sValue, Devices[Unit].TimedOut)
+                        elif  (status.display_name == 'Backdrop'):
+                            self.Active = False
+                            nValue = 9
+                            sValue = 'Screensaver'
+                            UpdateDevice(Unit, nValue,  sValue, Devices[Unit].TimedOut)
+
+                    elif (Devices[Unit].DeviceID.find(self.parent.UUID+DEV_VOLUME) >= 0):
+                        nValue = 2
+                        if (status.volume_muted == True):
+                            nValue = 0
+                        sValue = int(status.volume_level*100)
+                        UpdateDevice(Unit, nValue, str(sValue), Devices[Unit].TimedOut)
+
+                    elif (Devices[Unit].DeviceID.find(self.parent.UUID+DEV_SOURCE) >= 0):
+                        if (status.display_name == None):
+                            nValue = sValue = APP_NONE
+                        else:
+                            nValue = sValue = APP_OTHER
+                            for App in Apps:
+                                if (Apps[App]['name'] == status.display_name):
+                                    nValue = sValue = App
+                                    break
+                        UpdateDevice(Unit, nValue,  str(sValue), Devices[Unit].TimedOut)
+                        
+            except RuntimeError: # dictionary sizes can be changed mid loop
+                pass
             except Exception as err:
                 Domoticz.Error("new_cast_status: "+str(err))
+                exc_type, exc_obj, exc_tb = sys.exc_info()
+                fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+                Domoticz.Error(str(exc_type)+", "+fname+", Line: "+str(exc_tb.tb_lineno))
 
-    class StatusMediaListener:
+    class MediaStatusListener:
         def __init__(self, parent):
             self.parent = parent
 
         def new_media_status(self, status):
+            #2019-04-20 11:51:45 [Family TV] <MediaStatus {'metadata_type': 3, 'title': 'The Chainsmokers / Coldplay - Something Just Like This', 'series_title': None, 'season': None, 'episode': None, 'artist': 'Nova 100', 'album_name': None, 'album_artist': None, 'track': None, 'subtitle_tracks': [{'trackId': 1, 'type': 'AUDIO'}], 'images': [MediaImage(url='http://cdn-profiles.tunein.com/s17634/images/logoq.png', height=None, width=None)], 'supports_pause': True, 'supports_seek': False, 'supports_stream_volume': True, 'supports_stream_mute': True, 'supports_skip_forward': False, 'supports_skip_backward': False, 'current_time': 35.356328, 'content_id': 'http://playerservices.streamtheworld.com/api/livestream-redirect/NOVA_100_AAC48.aac?src=tunein&tdtok=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiIsImtpZCI6ImZTeXA4In0.eyJpc3MiOiJ0aXNydiIsInN1YiI6IjIxMDY0IiwiaWF0IjoxNTU1NzI1MDY2LCJ0ZC1yZWciOmZhbHNlfQ.6c9J7oN_pQWvZUp6cAn6GkMEl4QrQDP_jV-6cVUAXDE', 'content_type': 'audio/mp3', 'duration': None, 'stream_type': 'LIVE', 'idle_reason': None, 'media_session_id': 1, 'playback_rate': 1, 'player_state': 'PLAYING', 'supported_media_commands': 274445, 'volume_level': 1, 'volume_muted': False, 'media_custom_data': {'contentId': 's17634'}, 'media_metadata': {'metadataType': 3, 'title': 'The Chainsmokers / Coldplay - Something Just Like This', 'artist': 'Nova 100', 'images': [{'url': 'http://cdn-profiles.tunein.com/s17634/images/logoq.png'}], 'subtitle': 'Nova 100'}, 'current_subtitle_tracks': [], 'last_updated': datetime.datetime(2019, 4, 20, 1, 51, 45, 446836)}>
             try:
+                if (status==None): return
+
                 self.parent.LogToFile(status)
                 self.parent.Ready = True
-                self.parent.syncDevices()
-            except Exception as err:
-                Domoticz.Error("new_media_status: "+str(err))
 
-    class ConnectionListener:
-        def __init__(self, parent):
-            self.parent = parent
-
-        def new_connection_status(self, new_status):
-            try:
-                self.parent.LogToFile(new_status)
-                Domoticz.Status(self.parent.Name+" is now: "+str(new_status))
-                if (new_status.status == "DISCONNECTED") or (new_status.status == "LOST") or (new_status.status == "FAILED"):
-                    self.parent.Ready = False
-                    self.parent.Active = False
-                self.parent.syncDevices()
-            except Exception as err:
-                Domoticz.Error("new_connection_status: "+str(err))
-                Domoticz.Error("new_connection_status: "+str(new_status))
-
-    def LogToFile(self, status):
-        if (Parameters["Mode5"] != "False") and (status != None):
-            print(time.strftime('%Y-%m-%d %H:%M:%S')+" ["+self.Name+"] "+str(status), file=open(Parameters["HomeFolder"]+"Messages.log", "a"))
-        
-    def syncDevices(self):
-        global APP_NONE,APP_OTHER
-        try:
-            # find relevant device
-            for Unit in Devices:
-                if (Devices[Unit].DeviceID.find(self.UUID) >= 0):
-                    nValue = Devices[Unit].nValue
-                    sValue = Devices[Unit].sValue
-                    self.Active = (not self.GoogleDevice.media_controller.is_idle)
-                    if self.Active and (self.GoogleDevice.app_display_name!=None) and (self.GoogleDevice.app_display_name=='Backdrop'): self.Active = False
-                    liveStream = "[] "
-                    if self.GoogleDevice.media_controller.status.stream_type_is_live: liveStream = "[Live]"
-                    if (self.Ready and (self.GoogleDevice.status != None)):
-                        if (Devices[Unit].DeviceID[-1] == "1"):     # Overall Status
-                            if (not self.Active):
-                                nValue = 9
-                                sValue = 'Screensaver'
-                            elif (self.GoogleDevice.media_controller.status.media_is_generic):
+                for Unit in Devices:
+                    if (Devices[Unit].DeviceID.find(self.parent.UUID) >= 0):
+                        nValue = Devices[Unit].nValue
+                        sValue = Devices[Unit].sValue
+                        liveStream = "[] "
+                        if status.stream_type_is_live: liveStream = "[Live] "
+                        if (Devices[Unit].DeviceID.find(self.parent.UUID+DEV_STATUS) >= 0):    # Overall Status
+                            if (status.media_is_generic):
                                 nValue = 4
-                                sValue = liveStream+str(self.GoogleDevice.media_controller.status.title)
-                            elif (self.GoogleDevice.media_controller.status.media_is_tvshow):
+                                sValue = liveStream + stringOrBlank(status.title)
+                            elif (status.media_is_tvshow):
                                 nValue = 4
-                                sValue = liveStream+str(self.GoogleDevice.media_controller.status.series_title)+"[S"+ \
-                                            stringOrBlank(self.GoogleDevice.media_controller.status.season)+":E"+ \
-                                            stringOrBlank(self.GoogleDevice.media_controller.status.episode)+"] "+\
-                                            stringOrBlank(self.GoogleDevice.media_controller.status.title)
-                            elif (self.GoogleDevice.media_controller.status.media_is_movie):
+                                sValue = liveStream+stringOrBlank(status.series_title)+"[S"+stringOrBlank(status.season)+":E"+ stringOrBlank(status.episode)+"] "+ stringOrBlank(status.title)
+                            elif (status.media_is_movie):
                                 nValue = 4
-                                sValue = liveStream+str(self.GoogleDevice.media_controller.status.title)
-                            elif (self.GoogleDevice.media_controller.status.media_is_photo):
+                                sValue = liveStream + stringOrBlank(status.title)
+                            elif (status.media_is_photo):
                                 nValue = 6
-                                sValue = str(self.GoogleDevice.media_controller.status.title)
-                            elif (self.GoogleDevice.media_controller.status.media_is_musictrack):
+                                sValue = stringOrBlank(status.title)
+                            elif (status.media_is_musictrack):
                                 nValue = 5
-                                sValue = liveStream+stringOrBlank(self.GoogleDevice.media_controller.status.artist)+ \
-                                            " ("+stringOrBlank(self.GoogleDevice.media_controller.status.album_name)+") "+ \
-                                            str(self.GoogleDevice.media_controller.status.title)
+                                sValue = liveStream+stringOrBlank(status.artist)+ " ("+stringOrBlank(status.album_name)+") "+ stringOrBlank(status.title)
 
                             # Check to see if we are paused
-                            if (self.GoogleDevice.media_controller.status.player_is_paused): nValue = 2
+                            if (status.player_is_paused): nValue = 2
 
                             # Now tidy up and compress the string
                             sValue = sValue.lstrip(":")
@@ -241,55 +249,60 @@ class GoogleDevice:
                             if (len(sValue) > 40): sValue = sValue.replace(" [", "[")
                             if (len(sValue) > 40): sValue = sValue.replace("] ", "]")
                             sValue = sValue.replace(",(", "(")
-                            #while (sValue.rfind(")") != -1) and (len(sValue) > 40):
-                            #    sValue = sValue.replace(sValue[sValue.rfind("("):sValue.rfind(")")+1],"")
-                        elif (Devices[Unit].DeviceID[-1] == "2"):   # Volume
-                            nValue = 2
-                            if (not self.Active) or (self.GoogleDevice.status.volume_muted == True):
-                                nValue = 0
-                            sValue = int(self.GoogleDevice.status.volume_level*100)
-                        elif (Devices[Unit].DeviceID[-1] == "3"):   # Playing
-                            if (self.GoogleDevice.media_controller.status.duration == None):
+                            UpdateDevice(Unit, nValue, str(sValue), Devices[Unit].TimedOut)
+
+                        elif (Devices[Unit].DeviceID.find(self.parent.UUID+DEV_PLAYING) >= 0):   # Playing
+                            if (status.duration == None):
                                 sValue='0'
                             else:
                                 try:
-                                    sValue=str(int((self.GoogleDevice.media_controller.status.adjusted_current_time / self.GoogleDevice.media_controller.status.duration)*100))
+                                    sValue=str(int((status.adjusted_current_time / status.duration)*100))
                                 except ZeroDivisionError as Err:
-                                    sValue="0"
-                            if (self.GoogleDevice.media_controller.status.player_is_playing):
+                                    sValue='0'
+                            if (status.player_is_playing):
                                 nValue=2
                                 if (sValue=='0'): sValue='1'
-                            elif ( self.GoogleDevice.media_controller.status.player_is_paused):
+                            elif (status.player_is_paused):
                                 nValue=0
                                 if (sValue=='0'): sValue='1'
                             else:
                                 nValue=0
                                 sValue='0'
-                        elif (Devices[Unit].DeviceID[-1] == "4"):   # Source (App Name)
-                            if (not self.Active):
-                                nValue = sValue = APP_NONE
-                            else:
-                                nValue = sValue = APP_OTHER
-                                for App in Apps:
-                                    if (Apps[App]['name'] == self.GoogleDevice.app_display_name):
-                                        nValue = sValue = App
-                                        break
-                        else:
-                            Domoticz.Error("Unknown device number: "+Devices[Unit].DeviceID)
-                            continue
-                        UpdateDevice(Unit, nValue, str(sValue), 0)
-                    else:
-                        if (Parameters["Mode4"] != "False"):
-                            UpdateDevice(Unit, Devices[Unit].nValue, Devices[Unit].sValue, 1)
-                   
-        except RuntimeError: # Suppress error message during start up when dictionary sizes can be changed by discovery thread
-            pass
-        except Exception as err:
-            Domoticz.Error("syncDevices: "+str(err))
-            exc_type, exc_obj, exc_tb = sys.exc_info()
-            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-            Domoticz.Error(str(exc_type)+", "+fname+", Line: "+str(exc_tb.tb_lineno))
+                            UpdateDevice(Unit, nValue, str(sValue), Devices[Unit].TimedOut)
 
+            except RuntimeError: # dictionary sizes can be changed mid loop
+                pass
+            except Exception as err:
+                Domoticz.Error("new_media_status: "+str(err))
+                exc_type, exc_obj, exc_tb = sys.exc_info()
+                fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+                Domoticz.Error(str(exc_type)+", "+fname+", Line: "+str(exc_tb.tb_lineno))
+
+    class ConnectionListener:
+        def __init__(self, parent):
+            self.parent = parent
+
+        def new_connection_status(self, new_status):
+            try:
+                self.parent.LogToFile(new_status)
+                Domoticz.Status(self.parent.Name+" is now: "+str(new_status))
+                if (new_status.status == "DISCONNECTED") or (new_status.status == "LOST") or (new_status.status == "FAILED"):
+                    self.parent.Ready = False
+                    self.parent.Active = False
+                    
+                if (Parameters["Mode4"] != "False"):
+                    for Unit in Devices:
+                        if (Devices[Unit].DeviceID.find(self.parent.UUID) >= 0):
+                            UpdateDevice(Unit, Devices[Unit].nValue, Devices[Unit].sValue, (1,0)[new_status.status=="CONNECTED"])
+                            
+            except Exception as err:
+                Domoticz.Error("new_connection_status: "+str(err))
+                Domoticz.Error("new_connection_status: "+str(new_status))
+
+    def LogToFile(self, status):
+        if (Parameters["Mode5"] != "False") and (status != None):
+            print(time.strftime('%Y-%m-%d %H:%M:%S')+" ["+self.Name+"] "+str(status), file=open(Parameters["HomeFolder"]+"Messages.log", "a"))
+        
     @property
     def VolumeUnit(self):
         global DEV_VOLUME
@@ -326,39 +339,47 @@ class BasePlugin:
                     os.mkdir(Parameters['HomeFolder']+'Messages')
                 Domoticz.Debug("handleMessage: '"+Message["Text"]+"', to be sent to '"+Message["Target"]+"'")
                 
-                tts = gTTS(Message["Text"],lang=Parameters["Language"])
-                tts.save(Parameters['HomeFolder']+'Messages/message.mp3')
-                #cleanText = Message["Text"].replace("'","")
-                #cleanText = cleanText.replace('"','')
-                #Domoticz.Debug("handleMessage: '"+cleanText+"', sent to '"+Message["Target"]+"'")
-                #os.system('curl -s -G "http://translate.google.com/translate_tts" --data "ie=UTF-8&total=1&idx=0&client=tw-ob&&tl='+Parameters["Language"]+'" --data-urlencode "q='+cleanText+'" -A "Mozilla" --compressed -o '+Parameters['HomeFolder']+'Messages/message.mp3')
-                
                 for uuid in self.googleDevices:
                     if (self.googleDevices[uuid].GoogleDevice.device.friendly_name == Message["Target"]):
-                        self.googleDevices[uuid].GoogleDevice.quit_app()
-                        if (self.googleDevices[uuid].GoogleDevice.status != None):
-                            currentVolume = self.googleDevices[uuid].GoogleDevice.status.volume_level
-                            self.googleDevices[uuid].GoogleDevice.set_volume(int(Parameters["Mode3"]) / 100)
-                            mc = self.googleDevices[uuid].GoogleDevice.media_controller
-                            mc.play_media("http://"+Parameters["Address"]+":"+Parameters["Port"]+"/message.mp3", 'audio/mp3')
-                            mc.block_until_active()
-                            time.sleep(1.0)
-                            endTime = time.time() + 70
-                            while (mc.status.player_is_idle) and (time.time() < endTime):
-                                Domoticz.Debug("Waiting for player (timeout in "+str(endTime - time.time())+" seconds)")
-                                time.sleep(0.5)
-                            while (not mc.status.player_is_idle) and (time.time() < endTime):
-                                Domoticz.Debug("Waiting for message to complete playing (timeout in "+str(endTime - time.time())+" seconds)")
-                                time.sleep(0.5)
-                            self.googleDevices[uuid].GoogleDevice.set_volume(currentVolume)
-                            self.googleDevices[uuid].GoogleDevice.quit_app()
-                        else:
-                            self.googleDevices[uuid].GoogleDevice.media_controller.play_media("http://"+Parameters["Address"]+":"+Parameters["Port"]+"/message.mp3", 'audio/mp3')
+                        if (self.googleDevices[uuid].Ready):
+                            language = Parameters["Language"]
+                            if (language in langOverride): language = langOverride[language]
+                            tts = gTTS(Message["Text"],lang=language)
+                            messageFileName = Parameters['HomeFolder']+'Messages/'+uuid+'.mp3'
+                            tts.save(messageFileName)
+                            if (not os.path.exists(messageFileName)):
+                                Domoticz.Error("'"+messageFileName+"' not found, translation must have failed.")
+                            else:
+                                Domoticz.Debug("'"+messageFileName+"' created, "+str(os.path.getsize(messageFileName))+" bytes")
                             
-                        if (time.time() < endTime):
-                            Domoticz.Log("Notification sent to '"+Message["Target"]+"' completed")
+                            self.googleDevices[uuid].GoogleDevice.quit_app()
+                            if (self.googleDevices[uuid].GoogleDevice.status != None):
+                                currentVolume = self.googleDevices[uuid].GoogleDevice.status.volume_level
+                                self.googleDevices[uuid].GoogleDevice.set_volume(int(Parameters["Mode3"]) / 100)
+                                mc = self.googleDevices[uuid].GoogleDevice.media_controller
+                                mc.play_media("http://"+Parameters["Address"]+":"+Parameters["Port"]+"/"+uuid+".mp3", 'audio/mp3')
+                                mc.block_until_active()
+                                time.sleep(1.0)
+                                endTime = time.time() + 70
+                                while (mc.status.player_is_idle) and (time.time() < endTime):
+                                    Domoticz.Debug("Waiting for player (timeout in "+str(endTime - time.time())[:4]+" seconds)")
+                                    time.sleep(0.5)
+                                while (not mc.status.player_is_idle) and (time.time() < endTime):
+                                    Domoticz.Debug("Waiting for message to complete playing (timeout in "+str(endTime - time.time())[:4]+" seconds)")
+                                    time.sleep(0.5)
+                                self.googleDevices[uuid].GoogleDevice.set_volume(currentVolume)
+                                self.googleDevices[uuid].GoogleDevice.quit_app()
+                            else:
+                                self.googleDevices[uuid].GoogleDevice.media_controller.play_media("http://"+Parameters["Address"]+":"+Parameters["Port"]+"/"+uuid+".mp3", 'audio/mp3')
+                                
+                            if (time.time() < endTime):
+                                Domoticz.Log("Notification sent to '"+Message["Target"]+"' completed")
+                                os.remove(messageFileName)
+                            else:
+                                Domoticz.Error("Notification sent to '"+Message["Target"]+"' timed out")
                         else:
-                            Domoticz.Error("Notification sent to '"+Message["Target"]+"' timed out")
+                            Domoticz.Error("Google device '"+Message["Target"]+"' is not connected, ignored.")
+                    
             except Exception as err:
                 Domoticz.Error("handleMessage: "+str(err))
             self.messageQueue.task_done()
@@ -383,7 +404,7 @@ class BasePlugin:
                 if (Devices[Device].Unit > maxUnitNo): maxUnitNo = Devices[Device].Unit
                 if (Devices[Device].DeviceID.find(uuid) >= 0):
                     createDomoticzDevice = False
-                    UpdateDevice(Devices[Device].Unit, Devices[Device].nValue, Devices[Device].sValue, 0)
+                    break
 
             if (createDomoticzDevice):
                 logoType = Parameters['Key']+'Chromecast'
@@ -559,11 +580,6 @@ class BasePlugin:
         elif (action == 'Quit'):
             self.googleDevices[uuid].GoogleDevice.quit_app()
 
-    def onHeartbeat(self):
-        for uuid in self.googleDevices:
-            if (self.googleDevices[uuid].Active):
-                self.googleDevices[uuid].syncDevices()
-
     def onNotification(self, Name, Subject, Text, Status, Priority, Sound, ImageFile):
         Domoticz.Debug("onNotification: " + Name + "," + Subject + "," + Text + "," + Status + "," + str(Priority) + "," + Sound + "," + ImageFile)
         if (self.messageQueue != None):
@@ -598,7 +614,7 @@ class BasePlugin:
         while (threading.active_count() > 1) and (time.time() < endTime):
             for thread in threading.enumerate():
                 if (thread.name != threading.current_thread().name):
-                    Domoticz.Log("'"+thread.name+"' is still running (timeout in "+str(int(endTime - time.time()))+" seconds)")
+                    Domoticz.Log("'"+thread.name+"' is still running (timeout in "+str(int(endTime - time.time()))[:4]+" seconds)")
             time.sleep(1.0)
 
 global _plugin
@@ -619,10 +635,6 @@ def onMessage(Connection, Data):
 def onCommand(Unit, Command, Level, Hue):
     global _plugin
     _plugin.onCommand(Unit, Command, Level, Hue)
-
-def onHeartbeat():
-    global _plugin
-    _plugin.onHeartbeat()
 
 def onConnect(Connection, Status, Description):
     global _plugin

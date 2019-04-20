@@ -78,7 +78,6 @@ Nothing !
 
 | Version | Information |
 | ----- | ---------- |
-| 1.10.2 | Added initial support for Google Cast Groups |
 | 1.11.4 | Bugfix: Create Messages directory if required<br/>Bugfix: Add handling for when device as no status during message playing |
 | 1.11.5 | Bugfix: Removed extraneous quotes from strings sent to google translate |
 | 1.12.1 | Improved spoken message completion |
@@ -86,3 +85,4 @@ Nothing !
 | 1.14.7 | Bugfix: Long media file now play |
 | 1.15.3 | Improved logging during mp3 transfer |
 | 1.16.13 | Bugfix: Handle groups changing 'elected leader' |
+| 1.18.13 | Revamped device updates + improved debugging |
