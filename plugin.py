@@ -10,7 +10,7 @@
 #         Credit where it is due!
 #
 """
-<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.18.13" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
+<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.18.35" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
     <description>
         <h2>Domoticz Google Plugin</h2><br/>
         <h3>Key Features</h3>
@@ -138,6 +138,7 @@ class GoogleDevice:
         self.Ready = False
         self.Active = False
         self.LogToFile("Google device created: "+str(self))
+        self.currentState = {}
         
         googleDevice.register_status_listener(self.CastStatusListener(self))
         googleDevice.media_controller.register_status_listener(self.MediaStatusListener(self))
@@ -149,7 +150,7 @@ class GoogleDevice:
             self.parent = parent
 
         def new_cast_status(self, status):
-            #2019-04-20 11:50:53 [Lounge Speaker] CastStatus(is_active_input=False, is_stand_by=True, volume_level=0.5049999952316284, volume_muted=False, app_id=None, display_name=None, namespaces=[], session_id=None, transport_id=None, status_text='')
+            # CastStatus(is_active_input=False, is_stand_by=True, volume_level=0.5049999952316284, volume_muted=False, app_id=None, display_name=None, namespaces=[], session_id=None, transport_id=None, status_text='')
             try:
                 if (status==None): return
 
@@ -158,16 +159,13 @@ class GoogleDevice:
 
                 for Unit in Devices:
                     if (Devices[Unit].DeviceID.find(self.parent.UUID+DEV_STATUS) >= 0):
-                        if  (status.display_name == None):
-                            self.Active = False
-                            nValue = 0
-                            sValue = ''
-                            UpdateDevice(Unit, nValue,  sValue, Devices[Unit].TimedOut)
-                        elif  (status.display_name == 'Backdrop'):
+                        if  (status.display_name == None) or (status.display_name == 'Backdrop'):
                             self.Active = False
                             nValue = 9
                             sValue = 'Screensaver'
-                            UpdateDevice(Unit, nValue,  sValue, Devices[Unit].TimedOut)
+                            UpdateDevice(Unit, nValue, sValue, Devices[Unit].TimedOut)
+                        else:
+                            UpdateDevice(Unit, Devices[Unit].nValue, status.display_name, Devices[Unit].TimedOut)
 
                     elif (Devices[Unit].DeviceID.find(self.parent.UUID+DEV_VOLUME) >= 0):
                         nValue = 2
@@ -200,7 +198,7 @@ class GoogleDevice:
             self.parent = parent
 
         def new_media_status(self, status):
-            #2019-04-20 11:51:45 [Family TV] <MediaStatus {'metadata_type': 3, 'title': 'The Chainsmokers / Coldplay - Something Just Like This', 'series_title': None, 'season': None, 'episode': None, 'artist': 'Nova 100', 'album_name': None, 'album_artist': None, 'track': None, 'subtitle_tracks': [{'trackId': 1, 'type': 'AUDIO'}], 'images': [MediaImage(url='http://cdn-profiles.tunein.com/s17634/images/logoq.png', height=None, width=None)], 'supports_pause': True, 'supports_seek': False, 'supports_stream_volume': True, 'supports_stream_mute': True, 'supports_skip_forward': False, 'supports_skip_backward': False, 'current_time': 35.356328, 'content_id': 'http://playerservices.streamtheworld.com/api/livestream-redirect/NOVA_100_AAC48.aac?src=tunein&tdtok=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiIsImtpZCI6ImZTeXA4In0.eyJpc3MiOiJ0aXNydiIsInN1YiI6IjIxMDY0IiwiaWF0IjoxNTU1NzI1MDY2LCJ0ZC1yZWciOmZhbHNlfQ.6c9J7oN_pQWvZUp6cAn6GkMEl4QrQDP_jV-6cVUAXDE', 'content_type': 'audio/mp3', 'duration': None, 'stream_type': 'LIVE', 'idle_reason': None, 'media_session_id': 1, 'playback_rate': 1, 'player_state': 'PLAYING', 'supported_media_commands': 274445, 'volume_level': 1, 'volume_muted': False, 'media_custom_data': {'contentId': 's17634'}, 'media_metadata': {'metadataType': 3, 'title': 'The Chainsmokers / Coldplay - Something Just Like This', 'artist': 'Nova 100', 'images': [{'url': 'http://cdn-profiles.tunein.com/s17634/images/logoq.png'}], 'subtitle': 'Nova 100'}, 'current_subtitle_tracks': [], 'last_updated': datetime.datetime(2019, 4, 20, 1, 51, 45, 446836)}>
+            # <MediaStatus {'metadata_type': 3, 'title': 'The Chainsmokers / Coldplay - Something Just Like This', 'series_title': None, 'season': None, 'episode': None, 'artist': 'Nova 100', 'album_name': None, 'album_artist': None, 'track': None, 'subtitle_tracks': [{'trackId': 1, 'type': 'AUDIO'}], 'images': [MediaImage(url='http://cdn-profiles.tunein.com/s17634/images/logoq.png', height=None, width=None)], 'supports_pause': True, 'supports_seek': False, 'supports_stream_volume': True, 'supports_stream_mute': True, 'supports_skip_forward': False, 'supports_skip_backward': False, 'current_time': 35.356328, 'content_id': 'http://playerservices.streamtheworld.com/api/livestream-redirect/NOVA_100_AAC48.aac?src=tunein&tdtok=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiIsImtpZCI6ImZTeXA4In0.eyJpc3MiOiJ0aXNydiIsInN1YiI6IjIxMDY0IiwiaWF0IjoxNTU1NzI1MDY2LCJ0ZC1yZWciOmZhbHNlfQ.6c9J7oN_pQWvZUp6cAn6GkMEl4QrQDP_jV-6cVUAXDE', 'content_type': 'audio/mp3', 'duration': None, 'stream_type': 'LIVE', 'idle_reason': None, 'media_session_id': 1, 'playback_rate': 1, 'player_state': 'PLAYING', 'supported_media_commands': 274445, 'volume_level': 1, 'volume_muted': False, 'media_custom_data': {'contentId': 's17634'}, 'media_metadata': {'metadataType': 3, 'title': 'The Chainsmokers / Coldplay - Something Just Like This', 'artist': 'Nova 100', 'images': [{'url': 'http://cdn-profiles.tunein.com/s17634/images/logoq.png'}], 'subtitle': 'Nova 100'}, 'current_subtitle_tracks': [], 'last_updated': datetime.datetime(2019, 4, 20, 1, 51, 45, 446836)}>
             try:
                 if (status==None): return
 
@@ -211,7 +209,7 @@ class GoogleDevice:
                     if (Devices[Unit].DeviceID.find(self.parent.UUID) >= 0):
                         nValue = Devices[Unit].nValue
                         sValue = Devices[Unit].sValue
-                        liveStream = "[] "
+                        liveStream = ""
                         if status.stream_type_is_live: liveStream = "[Live] "
                         if (Devices[Unit].DeviceID.find(self.parent.UUID+DEV_STATUS) >= 0):    # Overall Status
                             if (status.media_is_generic):
@@ -249,7 +247,7 @@ class GoogleDevice:
                             if (len(sValue) > 40): sValue = sValue.replace(" [", "[")
                             if (len(sValue) > 40): sValue = sValue.replace("] ", "]")
                             sValue = sValue.replace(",(", "(")
-                            UpdateDevice(Unit, nValue, str(sValue), Devices[Unit].TimedOut)
+                            if len(sValue) > 0: UpdateDevice(Unit, nValue, str(sValue), Devices[Unit].TimedOut)
 
                         elif (Devices[Unit].DeviceID.find(self.parent.UUID+DEV_PLAYING) >= 0):   # Playing
                             if (status.duration == None):
@@ -312,6 +310,36 @@ class GoogleDevice:
                 return Unit
         return None
 
+    @property
+    def PlayingUnit(self):
+        global DEV_PLAYING
+        # find first device
+        for Unit in Devices:
+            if (Devices[Unit].DeviceID == self.UUID+DEV_PLAYING):
+                return Unit
+        return None
+
+    def UpdatePlaying(self):
+        if (self.GoogleDevice.media_controller.status != None) and (self.GoogleDevice.media_controller.status.duration != None):
+            if (self.GoogleDevice.media_controller.status.player_is_playing):
+                try:
+                    sValue=str(int((self.GoogleDevice.media_controller.status.adjusted_current_time / self.GoogleDevice.media_controller.status.duration)*100))
+                    Unit = self.PlayingUnit
+                    if (Unit != None): UpdateDevice(Unit, Devices[Unit].nValue, str(sValue), Devices[Unit].TimedOut)
+                except ZeroDivisionError as Err:
+                    pass                
+                except Exception as err:
+                    Domoticz.Error("UpdatePlaying: "+str(err))
+                    exc_type, exc_obj, exc_tb = sys.exc_info()
+                    fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+                    Domoticz.Error(str(exc_type)+", "+fname+", Line: "+str(exc_tb.tb_lineno))
+        
+    def StoreState(self):
+        return
+        
+    def RestoreState(self):
+        return
+        
     def __str__(self):
         return "'%s', Model: '%s', UUID: '%s' + IP: '%s:%s'" % (self.Name, self.Model, self.UUID, self.IP, self.Port)
 
@@ -352,22 +380,31 @@ class BasePlugin:
                             else:
                                 Domoticz.Debug("'"+messageFileName+"' created, "+str(os.path.getsize(messageFileName))+" bytes")
                             
+                            self.googleDevices[uuid].StoreState()
                             self.googleDevices[uuid].GoogleDevice.quit_app()
                             if (self.googleDevices[uuid].GoogleDevice.status != None):
                                 currentVolume = self.googleDevices[uuid].GoogleDevice.status.volume_level
-                                self.googleDevices[uuid].GoogleDevice.set_volume(int(Parameters["Mode3"]) / 100)
+                                notifyVolume = int(Parameters["Mode3"]) / 100
+                                if (currentVolume != notifyVolume):
+                                    self.googleDevices[uuid].GoogleDevice.set_volume(notifyVolume)
                                 mc = self.googleDevices[uuid].GoogleDevice.media_controller
                                 mc.play_media("http://"+Parameters["Address"]+":"+Parameters["Port"]+"/"+uuid+".mp3", 'audio/mp3')
                                 mc.block_until_active()
                                 time.sleep(1.0)
-                                endTime = time.time() + 70
+                                endTime = time.time() + 10
                                 while (mc.status.player_is_idle) and (time.time() < endTime):
                                     Domoticz.Debug("Waiting for player (timeout in "+str(endTime - time.time())[:4]+" seconds)")
                                     time.sleep(0.5)
-                                while (not mc.status.player_is_idle) and (time.time() < endTime):
-                                    Domoticz.Debug("Waiting for message to complete playing (timeout in "+str(endTime - time.time())[:4]+" seconds)")
+                                if (mc.status.duration != None):
+                                    endTime = time.time()+mc.status.duration+1
+                                while (time.time() < endTime) and (not mc.status.player_is_idle):
+                                    if (mc.status.duration != None):
+                                        Domoticz.Debug("Waiting for message to complete playing ("+str(mc.status.adjusted_current_time)[:4]+" of "+str(mc.status.duration)+", timeout in "+str(endTime - time.time())[:4]+" seconds)")
+                                    else:
+                                        Domoticz.Debug("Waiting for message to complete playing (unknown duration, timeout in "+str(endTime - time.time())[:4]+" seconds)")
                                     time.sleep(0.5)
-                                self.googleDevices[uuid].GoogleDevice.set_volume(currentVolume)
+                                if (currentVolume != notifyVolume):
+                                    self.googleDevices[uuid].GoogleDevice.set_volume(currentVolume)
                                 self.googleDevices[uuid].GoogleDevice.quit_app()
                             else:
                                 self.googleDevices[uuid].GoogleDevice.media_controller.play_media("http://"+Parameters["Address"]+":"+Parameters["Port"]+"/"+uuid+".mp3", 'audio/mp3')
@@ -377,6 +414,7 @@ class BasePlugin:
                                 os.remove(messageFileName)
                             else:
                                 Domoticz.Error("Notification sent to '"+Message["Target"]+"' timed out")
+                            self.googleDevices[uuid].RestoreState()
                         else:
                             Domoticz.Error("Google device '"+Message["Target"]+"' is not connected, ignored.")
                     
@@ -484,12 +522,12 @@ class BasePlugin:
                 # 'Range':'bytes=0-'
                 range = Data['Headers']['Range']
                 fileStartPosition = int(range[range.find('=')+1:range.find('-')])
-                Domoticz.Debug(Connection.Address+":"+Connection.Port+" Sent 'GET' request file '"+Data['URL']+"' from position "+str(fileStartPosition))
                 messageFileName = Parameters['HomeFolder']+'Messages'+Data['URL']
                 messageFileSize = os.path.getsize(messageFileName)
                 messageFile = open(messageFileName, mode='rb')
                 messageFile.seek(fileStartPosition)
                 fileContent = messageFile.read(KB_TO_XMIT)
+                Domoticz.Debug(Connection.Address+":"+Connection.Port+" Sent 'GET' request file '"+Data['URL']+"' from position "+str(fileStartPosition)+", "+str(len(fileContent))+" bytes will be returned")
                 if (len(fileContent) == KB_TO_XMIT):
                     headerCode = "206 Partial Content"
                 Connection.Send({"Status":headerCode, "Headers": {"Content-Type": "audio/mp3", "Content-Range": "bytes "+str(fileStartPosition)+"-"+str(messageFile.tell())+"/"+str(messageFileSize)}, "Data":fileContent})
@@ -580,6 +618,10 @@ class BasePlugin:
         elif (action == 'Quit'):
             self.googleDevices[uuid].GoogleDevice.quit_app()
 
+    def onHeartbeat(self):
+        for uuid in self.googleDevices:
+            self.googleDevices[uuid].UpdatePlaying()
+
     def onNotification(self, Name, Subject, Text, Status, Priority, Sound, ImageFile):
         Domoticz.Debug("onNotification: " + Name + "," + Subject + "," + Text + "," + Status + "," + str(Priority) + "," + Sound + "," + ImageFile)
         if (self.messageQueue != None):
@@ -643,6 +685,10 @@ def onConnect(Connection, Status, Description):
 def onDisconnect(Connection):
     global _plugin
     _plugin.onDisconnect(Connection)
+
+def onHeartbeat():
+    global _plugin
+    _plugin.onHeartbeat()
 
 def onNotification(Name, Subject, Text, Status, Priority, Sound, ImageFile):
     global _plugin
