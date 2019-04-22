@@ -10,7 +10,7 @@
 #         Credit where it is due!
 #
 """
-<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.18.35" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
+<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.18.37" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
     <description>
         <h2>Domoticz Google Plugin</h2><br/>
         <h3>Key Features</h3>
@@ -138,7 +138,7 @@ class GoogleDevice:
         self.Ready = False
         self.Active = False
         self.LogToFile("Google device created: "+str(self))
-        self.currentState = {}
+        self.State = {}
         
         googleDevice.register_status_listener(self.CastStatusListener(self))
         googleDevice.media_controller.register_status_listener(self.MediaStatusListener(self))
@@ -156,7 +156,7 @@ class GoogleDevice:
 
                 self.parent.LogToFile(status)
                 self.parent.Ready = True
-
+                
                 for Unit in Devices:
                     if (Devices[Unit].DeviceID.find(self.parent.UUID+DEV_STATUS) >= 0):
                         if  (status.display_name == None) or (status.display_name == 'Backdrop'):
@@ -209,9 +209,9 @@ class GoogleDevice:
                     if (Devices[Unit].DeviceID.find(self.parent.UUID) >= 0):
                         nValue = Devices[Unit].nValue
                         sValue = Devices[Unit].sValue
-                        liveStream = ""
-                        if status.stream_type_is_live: liveStream = "[Live] "
                         if (Devices[Unit].DeviceID.find(self.parent.UUID+DEV_STATUS) >= 0):    # Overall Status
+                            liveStream = ""
+                            if status.stream_type_is_live: liveStream = "[Live] "
                             if (status.media_is_generic):
                                 nValue = 4
                                 sValue = liveStream + stringOrBlank(status.title)
@@ -247,7 +247,9 @@ class GoogleDevice:
                             if (len(sValue) > 40): sValue = sValue.replace(" [", "[")
                             if (len(sValue) > 40): sValue = sValue.replace("] ", "]")
                             sValue = sValue.replace(",(", "(")
-                            if len(sValue) > 0: UpdateDevice(Unit, nValue, str(sValue), Devices[Unit].TimedOut)
+                            sValue = sValue.strip()
+                            if (len(sValue) == 0): sValue = Devices[Unit].sValue
+                            UpdateDevice(Unit, nValue, str(sValue), Devices[Unit].TimedOut)
 
                         elif (Devices[Unit].DeviceID.find(self.parent.UUID+DEV_PLAYING) >= 0):   # Playing
                             if (status.duration == None):
@@ -335,10 +337,25 @@ class GoogleDevice:
                     Domoticz.Error(str(exc_type)+", "+fname+", Line: "+str(exc_tb.tb_lineno))
         
     def StoreState(self):
-        return
+        self.State.clear()
+        if (self.GoogleDevice.status != None):
+            self.State['Volume'] = self.GoogleDevice.status.volume_level
+            self.State['Muted'] = self.GoogleDevice.status.volume_muted
+            self.State['App'] = self.GoogleDevice.app_id
+        if (self.GoogleDevice.media_controller.status != None):
+            self.State['SupportsSeek'] = self.GoogleDevice.media_controller.status.supports_seek
+
+        self.GoogleDevice.quit_app()
+        self.GoogleDevice.set_volume(int(Parameters["Mode3"]) / 100)
+        self.GoogleDevice.set_volume_muted(False)       
         
     def RestoreState(self):
-        return
+        if (self.State['Volume'] != None):
+            self.GoogleDevice.quit_app()
+            if 'Volume' in self.State: self.GoogleDevice.set_volume(self.State['Volume'])
+            if 'Muted' in self.State: self.GoogleDevice.set_volume_muted(self.State['Muted'])
+        else:
+            Domotic.Log("No device state to restore after notification")
         
     def __str__(self):
         return "'%s', Model: '%s', UUID: '%s' + IP: '%s:%s'" % (self.Name, self.Model, self.UUID, self.IP, self.Port)
@@ -377,49 +394,42 @@ class BasePlugin:
                             tts.save(messageFileName)
                             if (not os.path.exists(messageFileName)):
                                 Domoticz.Error("'"+messageFileName+"' not found, translation must have failed.")
+                                break
                             else:
                                 Domoticz.Debug("'"+messageFileName+"' created, "+str(os.path.getsize(messageFileName))+" bytes")
                             
                             self.googleDevices[uuid].StoreState()
-                            self.googleDevices[uuid].GoogleDevice.quit_app()
-                            if (self.googleDevices[uuid].GoogleDevice.status != None):
-                                currentVolume = self.googleDevices[uuid].GoogleDevice.status.volume_level
-                                notifyVolume = int(Parameters["Mode3"]) / 100
-                                if (currentVolume != notifyVolume):
-                                    self.googleDevices[uuid].GoogleDevice.set_volume(notifyVolume)
-                                mc = self.googleDevices[uuid].GoogleDevice.media_controller
-                                mc.play_media("http://"+Parameters["Address"]+":"+Parameters["Port"]+"/"+uuid+".mp3", 'audio/mp3')
-                                mc.block_until_active()
-                                time.sleep(1.0)
-                                endTime = time.time() + 10
-                                while (mc.status.player_is_idle) and (time.time() < endTime):
-                                    Domoticz.Debug("Waiting for player (timeout in "+str(endTime - time.time())[:4]+" seconds)")
-                                    time.sleep(0.5)
+                            mc = self.googleDevices[uuid].GoogleDevice.media_controller
+                            mc.play_media("http://"+Parameters["Address"]+":"+Parameters["Port"]+"/"+uuid+".mp3", 'audio/mp3')
+                            mc.block_until_active()
+                            time.sleep(1.0)
+                            endTime = time.time() + 10
+                            while (mc.status.player_is_idle) and (time.time() < endTime):
+                                Domoticz.Debug("Waiting for player (timeout in "+str(endTime - time.time())[:4]+" seconds)")
+                                time.sleep(0.5)
+                            if (mc.status.duration != None):
+                                endTime = time.time()+mc.status.duration+1
+                            while (time.time() < endTime) and (not mc.status.player_is_idle):
                                 if (mc.status.duration != None):
-                                    endTime = time.time()+mc.status.duration+1
-                                while (time.time() < endTime) and (not mc.status.player_is_idle):
-                                    if (mc.status.duration != None):
-                                        Domoticz.Debug("Waiting for message to complete playing ("+str(mc.status.adjusted_current_time)[:4]+" of "+str(mc.status.duration)+", timeout in "+str(endTime - time.time())[:4]+" seconds)")
-                                    else:
-                                        Domoticz.Debug("Waiting for message to complete playing (unknown duration, timeout in "+str(endTime - time.time())[:4]+" seconds)")
-                                    time.sleep(0.5)
-                                if (currentVolume != notifyVolume):
-                                    self.googleDevices[uuid].GoogleDevice.set_volume(currentVolume)
-                                self.googleDevices[uuid].GoogleDevice.quit_app()
-                            else:
-                                self.googleDevices[uuid].GoogleDevice.media_controller.play_media("http://"+Parameters["Address"]+":"+Parameters["Port"]+"/"+uuid+".mp3", 'audio/mp3')
+                                    Domoticz.Debug("Waiting for message to complete playing ("+str(mc.status.adjusted_current_time)[:4]+" of "+str(mc.status.duration)+", timeout in "+str(endTime - time.time())[:4]+" seconds)")
+                                else:
+                                    Domoticz.Debug("Waiting for message to complete playing (unknown duration, timeout in "+str(endTime - time.time())[:4]+" seconds)")
+                                time.sleep(0.5)
+                            self.googleDevices[uuid].RestoreState()
                                 
                             if (time.time() < endTime):
                                 Domoticz.Log("Notification sent to '"+Message["Target"]+"' completed")
                                 os.remove(messageFileName)
                             else:
                                 Domoticz.Error("Notification sent to '"+Message["Target"]+"' timed out")
-                            self.googleDevices[uuid].RestoreState()
                         else:
                             Domoticz.Error("Google device '"+Message["Target"]+"' is not connected, ignored.")
                     
             except Exception as err:
                 Domoticz.Error("handleMessage: "+str(err))
+                exc_type, exc_obj, exc_tb = sys.exc_info()
+                fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+                Domoticz.Error(str(exc_type)+", "+fname+", Line: "+str(exc_tb.tb_lineno))
             self.messageQueue.task_done()
         Domoticz.Debug("Exiting notification handler")
     

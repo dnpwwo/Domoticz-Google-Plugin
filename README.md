@@ -87,3 +87,4 @@ Nothing !
 | 1.16.13 | Bugfix: Handle groups changing 'elected leader' |
 | 1.18.13 | Revamped device updates + improved debugging |
 | 1.18.35 | Bugfix: Stopped devices being marked 'Off', fixed Playing slider |
+| 1.18.37 | Bugfix: Media text not showing correctly |
