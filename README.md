@@ -88,3 +88,4 @@ Nothing !
 | 1.18.13 | Revamped device updates + improved debugging |
 | 1.18.35 | Bugfix: Stopped devices being marked 'Off', fixed Playing slider |
 | 1.18.37 | Bugfix: Media text not showing correctly |
+| 1.19.5 | Removed Address & Port parameters because they seemed to confuse people. Now determined internally. |

@@ -10,19 +10,19 @@
 #         Credit where it is due!
 #
 """
-<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.18.37" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
+<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.19.5" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
     <description>
         <h2>Domoticz Google Plugin</h2><br/>
         <h3>Key Features</h3>
         <ul style="list-style-type:square">
             <li style="line-height:normal">Devices are discovered automatically and created in the Devices tab</li>
-            <li style="line-height:normal">Voice notifications can be sent to selected Google triggered by Domoticz notifications </li>
             <li style="line-height:normal">When network connectivity is lost the Domoticz UI will optionally show the device(s) with Red banner</li>
             <li style="line-height:normal">Device icons are created in Domoticz</li>
             <li style="line-height:normal">Domoticz can control the Application selected</li>
             <li style="line-height:normal">Domoticz can control the Volume including Mute/Unmute</li>
             <li style="line-height:normal">Domoticz can control the playing media.  Play/Pause and skip forward and backwards</li>
-            <li style="line-height:normal">Google devices can be the targets of native Domoticz notifications. These are spoken through a chosen device (or audio group) in the language specified in Domoticz </li>
+            <li style="line-height:normal">Google devices can be the targets of native Domoticz notifications. These are spoken through a specified device (or audio group) in the language specified in Domoticz </li>
+            <li style="line-height:normal">Voice notifications can be sent to selected Google devices from event scripts (Lua or Python)</li>
         </ul>
         <h3>Devices</h3>
         <ul style="list-style-type:square">
@@ -36,9 +36,7 @@
             <li style="line-height:normal">Preferred Video/Audio Apps - Application to select when scripts request 'Video' or 'Audio' mode from a script</li>
             <li style="line-height:normal">Voice message volume - Volume to play messages (previous level will be restored afterwards)</li>
             <li style="line-height:normal">Voice Device/Group - If specified device (or Audio Group) will receive audible notifications. 'Google_Devices' will appear as a notification target when editing any Domoticz device that supports Notifications</li>
-            <li style="line-height:normal">Voice message IP address - Required for voice messages, the external address of the Domoticz host</li>
-            <li style="line-height:normal">Voice message port - Required for voice messages, the port to use to serve the message to the Google device(s)</li>
-            <li style="line-height:normal">Time Out Lost Devices - When true, the devices in Domoitcz will have a red banner when network connectivity is lost</li>
+            <li style="line-height:normal">Time Out Lost Devices - When true, the devices in Domoticz will have a red banner when network connectivity is lost</li>
             <li style="line-height:normal">Log to file - When true, messages from Google devices are written to Messages.log in the Plugin's directory</li>
             <li style="line-height:normal">Debug - When true the logging level will be much higher to aid with troubleshooting</li>
         </ul>
@@ -68,8 +66,6 @@
             </options>
         </param>
         <param field="Mode1" label="Voice Device/Group" width="150px" />
-        <param field="Address" label="Voice message IP address" width="200px" required="true" default="127.0.0.1"/>
-        <param field="Port" label="Voice message port" width="50px" required="true" default="8009"/>
         <param field="Mode4" label="Time Out Lost Devices" width="75px">
             <options>
                 <option label="True" value="True" default="true"/>
@@ -103,6 +99,7 @@ import threading
 import time
 import json
 import queue
+import random
 import pychromecast
 import pychromecast.config as Consts
 try:
@@ -363,6 +360,7 @@ class GoogleDevice:
 class BasePlugin:
     
     def __init__(self):
+        global voiceEnabled
         self.googleDevices = {}
         self.stopDiscovery = None
         self.messageServer = None
@@ -372,8 +370,20 @@ class BasePlugin:
             self.messageThread = threading.Thread(name="GoogleNotify", target=BasePlugin.handleMessage, args=(self,))
 
     def handleMessage(self):
-        Domoticz.Debug("Entering notification handler")
-        while True:
+        global voiceEnabled
+        Domoticz.Debug("handleMessage: Entering notification handler")
+        ipAddress = GetIP()
+        ipPort = str(random.randint(10001,19999))
+        
+        if (len(ipAddress) > 0):
+            Domoticz.Log("Notifications will use IP Address: "+ipAddress+":"+ipPort+" to serve audio media.")
+            self.messageServer = Domoticz.Connection(Name="Message Server", Transport="TCP/IP", Protocol="HTTP", Port=ipPort)
+            self.messageServer.Listen()
+        else:
+            Domoticz.Error("Unable to determine host external IP address: Voice notifications will not be enabled")
+            voiceEnabled = False
+
+        while voiceEnabled:
             try:
                 Message = self.messageQueue.get(block=True)
                 if Message is None:
@@ -400,7 +410,7 @@ class BasePlugin:
                             
                             self.googleDevices[uuid].StoreState()
                             mc = self.googleDevices[uuid].GoogleDevice.media_controller
-                            mc.play_media("http://"+Parameters["Address"]+":"+Parameters["Port"]+"/"+uuid+".mp3", 'audio/mp3')
+                            mc.play_media("http://"+ipAddress+":"+ipPort+"/"+uuid+".mp3", 'audio/mp3')
                             mc.block_until_active()
                             time.sleep(1.0)
                             endTime = time.time() + 10
@@ -431,7 +441,9 @@ class BasePlugin:
                 fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
                 Domoticz.Error(str(exc_type)+", "+fname+", Line: "+str(exc_tb.tb_lineno))
             self.messageQueue.task_done()
-        Domoticz.Debug("Exiting notification handler")
+        
+        if (self.messageServer != None): self.messageServer.Disconnect()
+        Domoticz.Debug("handleMessage: Exiting notification handler")
     
     def discoveryCallback(self, googleDevice):
         global DEV_STATUS,DEV_VOLUME,DEV_PLAYING,DEV_SOURCE
@@ -495,8 +507,6 @@ class BasePlugin:
         self.stopDiscovery = pychromecast.get_chromecasts(callback=self.discoveryCallback, blocking=False)
         
         if (voiceEnabled):
-            self.messageServer = Domoticz.Connection(Name="Message Server", Transport="TCP/IP", Protocol="HTTP", Port=Parameters["Port"])
-            self.messageServer.Listen()
             self.messageThread.start()
         else:
             Domoticz.Error("'gtts' module import error: "+voiceError+": Voice notifications will not be enabled")
@@ -705,6 +715,20 @@ def onNotification(Name, Subject, Text, Status, Priority, Sound, ImageFile):
     _plugin.onNotification(Name, Subject, Text, Status, Priority, Sound, ImageFile)
 
 # Generic helper functions
+def GetIP():
+    import socket
+    IP = ''
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(('8.8.8.8', 1))
+        IP = s.getsockname()[0]
+        Domoticz.Debug("IP Address is: "+str(IP))
+    except Exception as err:
+        Domoticz.Debug("GetIP: "+str(err))
+    finally:
+        s.close()
+    return str(IP)
+
 def stringOrBlank(input):
     if (input == None): return ""
     else: return str(input)
