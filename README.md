@@ -18,7 +18,7 @@ Controls multiple Google Chromecasts and Homes on your network.   Tested on Linu
 
 ## Installation
 
-Python version 3.4 or higher required & a 2019 version of Domoticz (for voice to work).  On Python 3.6.x this plugin will crash Domoticz 10-20% of the time when the plugin is stopped or restarted. This appears related to a defect introduced in Python 3.6 that has been reported on the internet.
+Python version 3.4 or higher required & a 2019 version of Domoticz (for voice to work).  On Python 3.6.x this plugin will crash Domoticz 10-20% of the time when the plugin is stopped or restarted. This appears related to a defect introduced in Python 3.6 that has been reported on the Internet.
 
 To install:
 * Go in your Domoticz directory using a command line and open the plugins directory.
@@ -78,9 +78,6 @@ Nothing !
 
 | Version | Information |
 | ----- | ---------- |
-| 1.11.4 | Bugfix: Create Messages directory if required<br/>Bugfix: Add handling for when device as no status during message playing |
-| 1.11.5 | Bugfix: Removed extraneous quotes from strings sent to google translate |
-| 1.12.1 | Improved spoken message completion |
 | 1.13.1 | Bugfix: Plugin now waits for voice playback correctly |
 | 1.14.7 | Bugfix: Long media file now play |
 | 1.15.3 | Improved logging during mp3 transfer |
@@ -89,3 +86,4 @@ Nothing !
 | 1.18.35 | Bugfix: Stopped devices being marked 'Off', fixed Playing slider |
 | 1.18.37 | Bugfix: Media text not showing correctly |
 | 1.19.5 | Removed Address & Port parameters because they seemed to confuse people. Now determined internally. |
+| 1.21.9 | New applications are now added dynamically to Chromecast 'Source' devices.  Requires Beta post 13-May-19 |

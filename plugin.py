@@ -10,7 +10,7 @@
 #         Credit where it is due!
 #
 """
-<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.19.5" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
+<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.21.9" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
     <description>
         <h2>Domoticz Google Plugin</h2><br/>
         <h3>Key Features</h3>
@@ -118,7 +118,7 @@ DEV_SOURCE  = "-4"
 
 APP_NONE=0
 APP_OTHER=40
-Apps={ APP_NONE:{'id':Consts.APP_BACKDROP , 'name':'Backdrop'}, 10:{'id':Consts.APP_SPOTIFY, 'name':'Spotify'}, 20:{'id':'CA5E8412', 'name':'Netflix'}, 30:{'id':Consts.APP_YOUTUBE , 'name':'Youtube'}, APP_OTHER:{'id':'', 'name':'Other'}    }
+Apps={ 'Backdrop':Consts.APP_BACKDROP, 'Spotify':Consts.APP_SPOTIFY, 'Netflix':'CA5E8412', 'Youtube':Consts.APP_YOUTUBE, 'Other':'' }
 
 # Language overrides for when Domoticz language does not line up with Google translate
 # Dictionary should contain Domoticz language string as key and language string to be used e.g {"nl":"nl-NL"}
@@ -147,6 +147,7 @@ class GoogleDevice:
             self.parent = parent
 
         def new_cast_status(self, status):
+            global Apps
             # CastStatus(is_active_input=False, is_stand_by=True, volume_level=0.5049999952316284, volume_muted=False, app_id=None, display_name=None, namespaces=[], session_id=None, transport_id=None, status_text='')
             try:
                 if (status==None): return
@@ -172,15 +173,25 @@ class GoogleDevice:
                         UpdateDevice(Unit, nValue, str(sValue), Devices[Unit].TimedOut)
 
                     elif (Devices[Unit].DeviceID.find(self.parent.UUID+DEV_SOURCE) >= 0):
-                        if (status.display_name == None):
-                            nValue = sValue = APP_NONE
-                        else:
-                            nValue = sValue = APP_OTHER
-                            for App in Apps:
-                                if (Apps[App]['name'] == status.display_name):
-                                    nValue = sValue = App
-                                    break
-                        UpdateDevice(Unit, nValue,  str(sValue), Devices[Unit].TimedOut)
+                        nValue = sValue = APP_NONE
+                        if (status.display_name != None) and (status.app_id != Consts.APP_BACKDROP):
+                            if Devices[Unit].Options['LevelNames'].find(status.display_name) == -1:
+                                nValue = sValue = len(Devices[Unit].Options['LevelNames'].split("|"))*10
+                                Devices[Unit].Options['LevelNames'] = Devices[Unit].Options['LevelNames']+"|"+status.display_name
+                                Devices[Unit].Update(nValue, str(sValue), Options=Devices[Unit].Options)
+                                
+                                # remember all apps that we see because we may need the ID again later
+                                seenApps = getConfigItem("Apps", Apps)
+                                if not status.display_name in seenApps:
+                                    seenApps[status.display_name] = status.app_id
+                                    setConfigItem("Apps", seenApps)
+                            else:
+                                for i, level in enumerate(Devices[Unit].Options['LevelNames'].split("|")):
+                                    if level == status.display_name:
+                                        nValue = sValue = i*10
+                                        break
+                        
+                        UpdateDevice(Unit, nValue, str(sValue), Devices[Unit].TimedOut)
                         
             except RuntimeError: # dictionary sizes can be changed mid loop
                 pass
@@ -474,7 +485,7 @@ class BasePlugin:
                 Domoticz.Device(Name=self.googleDevices[uuid].Name+" Volume", Unit=maxUnitNo+2, Type=244, Subtype=73, Switchtype=7, Image=8, DeviceID=uuid+DEV_VOLUME, Description=googleDevice.device.model_name, Used=0).Create()
                 Domoticz.Device(Name=self.googleDevices[uuid].Name+" Playing", Unit=maxUnitNo+3, Type=244, Subtype=73, Switchtype=7, Image=12, DeviceID=uuid+DEV_PLAYING, Description=googleDevice.device.model_name, Used=0).Create()
                 if (googleDevice.device.model_name.find("Chromecast") >= 0):
-                    Options = {"LevelActions": "||||", "LevelNames": "Off|Spotify|Netflix|Youtube|Other", "LevelOffHidden": "false", "SelectorStyle": "0"}
+                    Options = {"LevelActions": "", "LevelNames": "Off", "LevelOffHidden": "false", "SelectorStyle": "0"}
                     Domoticz.Device(Name=self.googleDevices[uuid].Name+" Source",  Unit=maxUnitNo+4, TypeName="Selector Switch", Switchtype=18, Image=12, DeviceID=uuid+DEV_SOURCE, Description=googleDevice.device.model_name, Used=0, Options=Options).Create()
                 elif (googleDevice.device.model_name.find("Google Home") >= 0) or (googleDevice.device.model_name == "Google Cast Group"):
                     pass
@@ -513,51 +524,62 @@ class BasePlugin:
 
     def onMessage(self, Connection, Data):
     
-        messageFile = None
         try:
-            headerCode = "200 OK"
-            if (not 'Verb' in Data):
-                Domoticz.Error("Invalid web request received, no Verb present")
-                headerCode = "400 Bad Request"
-            elif (Data['Verb'] != 'GET'):
-                Domoticz.Error("Invalid web request received, only GET requests allowed ("+Data['Verb']+")")
-                headerCode = "405 Method Not Allowed"
-            elif (not 'URL' in Data):
-                Domoticz.Error("Invalid web request received, no URL present")
-                headerCode = "400 Bad Request"
-            elif (not 'Headers' in Data):
-                Domoticz.Error("Invalid web request received, no Headers present")
-                headerCode = "400 Bad Request"
-            elif (not 'Range' in Data['Headers']):
-                Domoticz.Error("Invalid web request received, no Range header present")
-                headerCode = "400 Bad Request"
-            elif (not os.path.exists(Parameters['HomeFolder']+'Messages'+Data['URL'])):
-                Domoticz.Error("Invalid web request received, file '"+Parameters['HomeFolder']+'Messages'+Data['URL']+"' does not exist")
-                headerCode = "404 File Not Found"
-            
-            if (headerCode != "200 OK"):
-                DumpHTTPResponseToLog(Data)
-                Connection.Send({"Status": headerCode})
-            else:
-                # 'Range':'bytes=0-'
-                range = Data['Headers']['Range']
-                fileStartPosition = int(range[range.find('=')+1:range.find('-')])
-                messageFileName = Parameters['HomeFolder']+'Messages'+Data['URL']
-                messageFileSize = os.path.getsize(messageFileName)
-                messageFile = open(messageFileName, mode='rb')
-                messageFile.seek(fileStartPosition)
-                fileContent = messageFile.read(KB_TO_XMIT)
-                Domoticz.Debug(Connection.Address+":"+Connection.Port+" Sent 'GET' request file '"+Data['URL']+"' from position "+str(fileStartPosition)+", "+str(len(fileContent))+" bytes will be returned")
-                if (len(fileContent) == KB_TO_XMIT):
-                    headerCode = "206 Partial Content"
-                Connection.Send({"Status":headerCode, "Headers": {"Content-Type": "audio/mp3", "Content-Range": "bytes "+str(fileStartPosition)+"-"+str(messageFile.tell())+"/"+str(messageFileSize)}, "Data":fileContent})
+            if (Connection.Parent == self.messageServer):
+                connectionOkay = True
+        except AttributeError:
+            Domoticz.Error("Please upgrade to the latest beta!!")
+            connectionOkay = True
+
+        # Callback connection for audible notifications
+        if (connectionOkay):
+            messageFile = None
+            try:
+                headerCode = "200 OK"
+                if (not 'Verb' in Data):
+                    Domoticz.Error("Invalid web request received, no Verb present")
+                    headerCode = "400 Bad Request"
+                elif (Data['Verb'] != 'GET'):
+                    Domoticz.Error("Invalid web request received, only GET requests allowed ("+Data['Verb']+")")
+                    headerCode = "405 Method Not Allowed"
+                elif (not 'URL' in Data):
+                    Domoticz.Error("Invalid web request received, no URL present")
+                    headerCode = "400 Bad Request"
+                elif (not 'Headers' in Data):
+                    Domoticz.Error("Invalid web request received, no Headers present")
+                    headerCode = "400 Bad Request"
+                elif (not 'Range' in Data['Headers']):
+                    Domoticz.Error("Invalid web request received, no Range header present")
+                    headerCode = "400 Bad Request"
+                elif (not os.path.exists(Parameters['HomeFolder']+'Messages'+Data['URL'])):
+                    Domoticz.Error("Invalid web request received, file '"+Parameters['HomeFolder']+'Messages'+Data['URL']+"' does not exist")
+                    headerCode = "404 File Not Found"
                 
-        except Exception as inst:
-            Domoticz.Error("Exception detail: '"+str(inst)+"'")
-            DumpHTTPResponseToLog(Data)
-            
-        if (messageFile != None):
-            messageFile.close()
+                if (headerCode != "200 OK"):
+                    DumpHTTPResponseToLog(Data)
+                    Connection.Send({"Status": headerCode})
+                else:
+                    # 'Range':'bytes=0-'
+                    range = Data['Headers']['Range']
+                    fileStartPosition = int(range[range.find('=')+1:range.find('-')])
+                    messageFileName = Parameters['HomeFolder']+'Messages'+Data['URL']
+                    messageFileSize = os.path.getsize(messageFileName)
+                    messageFile = open(messageFileName, mode='rb')
+                    messageFile.seek(fileStartPosition)
+                    fileContent = messageFile.read(KB_TO_XMIT)
+                    Domoticz.Debug(Connection.Address+":"+Connection.Port+" Sent 'GET' request file '"+Data['URL']+"' from position "+str(fileStartPosition)+", "+str(len(fileContent))+" bytes will be returned")
+                    if (len(fileContent) == KB_TO_XMIT):
+                        headerCode = "206 Partial Content"
+                    Connection.Send({"Status":headerCode, "Headers": {"Content-Type": "audio/mp3", "Content-Range": "bytes "+str(fileStartPosition)+"-"+str(messageFile.tell())+"/"+str(messageFileSize)}, "Data":fileContent})
+                    
+            except Exception as inst:
+                Domoticz.Error("Exception detail: '"+str(inst)+"'")
+                DumpHTTPResponseToLog(Data)
+                
+            if (messageFile != None):
+                messageFile.close()
+        else:
+            Domoticz.Error("Message from unknown connection: "+str(Connection))
 
     def onCommand(self, Unit, Command, Level, Hue):
         global DEV_STATUS,DEV_VOLUME,DEV_PLAYING,DEV_SOURCE
@@ -603,10 +625,13 @@ class BasePlugin:
                         else:
                             Domoticz.Log("["+self.googleDevices[uuid].Name+"] No duration found, seeking is not possible at this time.")
                 elif (subUnit == DEV_SOURCE):
-                    if (Apps[Level]['id']!=''):
-                        self.googleDevices[uuid].GoogleDevice.start_app(Apps[Level]['id'])
-                    else:
-                        self.googleDevices[uuid].GoogleDevice.start_app(Apps[40]['id'])
+                    seenApps = getConfigItem("Apps", Apps)
+                    for i, appName in enumerate(Devices[Unit].Options['LevelNames'].split("|")):
+                        if i*10 == Level:
+                            if (seenApps[appName]!=''):
+                                self.googleDevices[uuid].GoogleDevice.start_app(seenApps[appName])
+                            break
+                    
         elif (action == 'Rewind'):
             self.googleDevices[uuid].GoogleDevice.media_controller.seek(0.0)
         elif (action == 'Play') or (action == 'Playing'):
@@ -617,19 +642,17 @@ class BasePlugin:
             #mc.play_media('http://'+str(self.ip)+':'+str(self.Port)+'/message.mp3', 'music/mp3')
             x = 1
         elif (action == 'Video'): # Blockly command
-            if (self.googleDevices[uuid].GoogleDevice.app_display_name != Apps[APP_NONE]['name']) and (self.googleDevices[uuid].GoogleDevice.app_display_name != Parameters["Mode2"]["Video"]):
+            if (self.googleDevices[uuid].GoogleDevice.app_display_name != '') and (self.googleDevices[uuid].GoogleDevice.app_display_name != Parameters["Mode2"]["Video"]):
                 self.googleDevices[uuid].GoogleDevice.quit_app()
-                for App in Apps:
-                    if (Apps[App]['name'] == Parameters["Mode2"]["Video"]):
-                        self.googleDevices[uuid].GoogleDevice.start_app(Apps[App]['id'])
-                        break
+                seenApps = getConfigItem("Apps", Apps)
+                if (Parameters["Mode2"]["Video"] in seenApps):
+                    self.googleDevices[uuid].GoogleDevice.start_app(seenApps[Parameters["Mode2"]["Video"]])
         elif (action == 'Audio'): # Blockly command
-            if (self.googleDevices[uuid].GoogleDevice.app_display_name != Apps[APP_NONE]['name']) and (self.googleDevices[uuid].GoogleDevice.app_display_name != Parameters["Mode2"]["Audio"]):
+            if (self.googleDevices[uuid].GoogleDevice.app_display_name != '') and (self.googleDevices[uuid].GoogleDevice.app_display_name != Parameters["Mode2"]["Audio"]):
                 self.googleDevices[uuid].GoogleDevice.quit_app()
-                for App in Apps:
-                    if (Apps[App]['name'] == Parameters["Mode2"]["Audio"]):
-                        self.googleDevices[uuid].GoogleDevice.start_app(Apps[App]['id'])
-                        break
+                seenApps = getConfigItem("Apps", Apps)
+                if (Parameters["Mode2"]["Audio"] in seenApps):
+                    self.googleDevices[uuid].GoogleDevice.start_app(seenApps[Parameters["Mode2"]["Audio"]])
         elif (action == 'Sendnotification'):
             if (self.messageQueue != None):
                 self.messageQueue.put({"Target":self.googleDevices[uuid].GoogleDevice.device.friendly_name, "Text":params})
@@ -714,7 +737,7 @@ def onNotification(Name, Subject, Text, Status, Priority, Sound, ImageFile):
     global _plugin
     _plugin.onNotification(Name, Subject, Text, Status, Priority, Sound, ImageFile)
 
-# Generic helper functions
+# Network helper functions
 def GetIP():
     import socket
     IP = ''
@@ -729,6 +752,35 @@ def GetIP():
         s.close()
     return str(IP)
 
+# Configuration Helpers
+def getConfigItem(Key=None, Default={}):
+    Value = Default
+    try:
+        Config = Domoticz.Configuration()
+        if (Key != None):
+            Value = Config[Key] # only return requested key if there was one
+        else:
+            Value = Config      # return the whole configuration if no key
+    except KeyError:
+        Value = Default
+    except Exception as inst:
+        Domoticz.Error("Domoticz.Configuration read failed: '"+str(inst)+"'")
+    return Value
+    
+def setConfigItem(Key=None, Value=None):
+    Config = {}
+    try:
+        Config = Domoticz.Configuration()
+        if (Key != None):
+            Config[Key] = Value
+        else:
+            Config = Value  # set whole configuration if no key specified
+        Domoticz.Configuration(Config)
+    except Exception as inst:
+        Domoticz.Error("Domoticz.Configuration operation failed: '"+str(inst)+"'")
+    return Config
+
+# Generic helper functions
 def stringOrBlank(input):
     if (input == None): return ""
     else: return str(input)
