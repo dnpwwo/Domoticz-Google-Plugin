@@ -403,13 +403,12 @@ class BasePlugin:
 
                 if (not os.path.exists(Parameters['HomeFolder']+'Messages')):
                     os.mkdir(Parameters['HomeFolder']+'Messages')
-                Domoticz.Debug("handleMessage: '"+Message["Text"]+"', to be sent to '"+Message["Target"]+"'")
+                Domoticz.Debug("handleMessage: '"+Message["Text"]+"' in language '"+Message["Language"]+"', to be sent to '"+Message["Target"]+"' @ volume "+str(Message["Volume"])+"%")
                 
                 for uuid in self.googleDevices:
                     if (self.googleDevices[uuid].GoogleDevice.device.friendly_name == Message["Target"]):
                         if (self.googleDevices[uuid].Ready):
-                            language = Parameters["Language"]
-                            if (language in langOverride): language = langOverride[language]
+                            language = Message["Language"]
                             tts = gTTS(Message["Text"],lang=language)
                             messageFileName = Parameters['HomeFolder']+'Messages/'+uuid+'.mp3'
                             tts.save(messageFileName)
@@ -420,6 +419,7 @@ class BasePlugin:
                                 Domoticz.Debug("'"+messageFileName+"' created, "+str(os.path.getsize(messageFileName))+" bytes")
                             
                             self.googleDevices[uuid].StoreState()
+                            self.googleDevices[uuid].GoogleDevice.set_volume(int(Message["Volume"]) / 100)
                             mc = self.googleDevices[uuid].GoogleDevice.media_controller
                             mc.play_media("http://"+ipAddress+":"+ipPort+"/"+uuid+".mp3", 'audio/mp3')
                             mc.block_until_active()
@@ -667,9 +667,22 @@ class BasePlugin:
             self.googleDevices[uuid].UpdatePlaying()
 
     def onNotification(self, Name, Subject, Text, Status, Priority, Sound, ImageFile):
+        #dz.notify(Target to play notification on, Notification Text, Volume, Language, nil, 'Google_Devices' )
         Domoticz.Debug("onNotification: " + Name + "," + Subject + "," + Text + "," + Status + "," + str(Priority) + "," + Sound + "," + ImageFile)
+
+        # set language from Sound
+        if Sound == "Unknown": Sound = Parameters["Language"]
+        if (Sound in langOverride): Sound = langOverride[Sound]
+        
+        # set target from Subject
+        if Subject == "Unknown": Subject = Parameters['Mode1']
+        
+        # set volume (range 0-100)
+        if Priority == 0: Priority = int(Parameters["Mode3"])
+        if Priority >100: Priority = 100
+
         if (self.messageQueue != None):
-            self.messageQueue.put({"Target":Parameters['Mode1'], "Text":Text})
+            self.messageQueue.put({"Target":Subject, "Text":Text, "Language":Sound, "Volume":Priority})
         else:
             Domoticz.Error("Message queue not initialized, notification ignored.")
 
