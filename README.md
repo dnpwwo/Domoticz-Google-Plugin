@@ -88,4 +88,4 @@ Nothing !
 | 1.18.35 | Bugfix: Stopped devices being marked 'Off', fixed Playing slider |
 | 1.18.37 | Bugfix: Media text not showing correctly |
 | 1.19.5 | Removed Address & Port parameters because they seemed to confuse people. Now determined internally. |
-| 1.21.9 | New applications are now added dynamically to Chromecast 'Source' devices.  Requires Beta post 13-May-19 |
+| 1.22.0 | Support newer versions of PyChromeCast where the host is not available |
