@@ -754,7 +754,7 @@ def GetIP():
     return str(IP)
 
 def supportedTypes(gDevice):
-    return (gDevice.device.model_name == "Google Cast Group") or (gDevice.device.model_name == "Google Home") or (gDevice.device.model_name == "Google Home Mini") or (gDevice.device.model_name == "Google Nest Mini")
+    return (gDevice.device.model_name == "Google Cast Group") or (gDevice.device.model_name == "Google Home") or (gDevice.device.model_name == "Google Home Mini") or (gDevice.device.model_name == "Google Nest Mini") or (gDevice.device.model_name == "Google Nest Hub")
 
 # Configuration Helpers
 def getConfigItem(Key=None, Default={}):
