@@ -111,10 +111,11 @@ except Exception as err:
 
 KB_TO_XMIT = 1024 * 16
 
-DEV_STATUS  = "-1"
-DEV_VOLUME  = "-2"
-DEV_PLAYING = "-3"
-DEV_SOURCE  = "-4"
+DEV_STATUS     = "-1"
+DEV_VOLUME     = "-2"
+DEV_PLAYING    = "-3"
+DEV_SOURCE     = "-4"
+DEV_AVAILABLE  = "-5"
 
 APP_NONE=0
 APP_OTHER=40
@@ -147,6 +148,7 @@ class GoogleDevice:
             self.parent = parent
 
         def new_cast_status(self, status):
+            global DEV_STATUS,DEV_VOLUME,DEV_PLAYING,DEV_SOURCE,DEV_AVAILABLE
             global Apps
             # CastStatus(is_active_input=False, is_stand_by=True, volume_level=0.5049999952316284, volume_muted=False, app_id=None, display_name=None, namespaces=[], session_id=None, transport_id=None, status_text='')
             try:
@@ -171,6 +173,9 @@ class GoogleDevice:
                             nValue = 0
                         sValue = int(status.volume_level*100)
                         UpdateDevice(Unit, nValue, str(sValue), Devices[Unit].TimedOut)
+
+                    elif (Devices[Unit].DeviceID.find(self.parent.UUID+DEV_AVAILABLE) >= 0):
+                        UpdateDevice(Unit, 1, Devices[Unit].sValue, Devices[Unit].TimedOut)
 
                     elif (Devices[Unit].DeviceID.find(self.parent.UUID+DEV_SOURCE) >= 0):
                         nValue = sValue = APP_NONE
@@ -297,7 +302,11 @@ class GoogleDevice:
                 if (new_status.status == "DISCONNECTED") or (new_status.status == "LOST") or (new_status.status == "FAILED"):
                     self.parent.Ready = False
                     self.parent.Active = False
-                    
+                
+                for Unit in Devices:
+                    if (Devices[Unit].DeviceID.find(self.parent.UUID+DEV_AVAILABLE) >= 0):
+                        UpdateDevice(Unit, (0,1)[new_status.status=="CONNECTED"], Devices[Unit].sValue, Devices[Unit].TimedOut)
+                
                 if (Parameters["Mode4"] != "False"):
                     for Unit in Devices:
                         if (Devices[Unit].DeviceID.find(self.parent.UUID) >= 0):
@@ -457,7 +466,7 @@ class BasePlugin:
         Domoticz.Debug("handleMessage: Exiting notification handler")
     
     def discoveryCallback(self, googleDevice):
-        global DEV_STATUS,DEV_VOLUME,DEV_PLAYING,DEV_SOURCE
+        global DEV_STATUS,DEV_VOLUME,DEV_PLAYING,DEV_SOURCE,DEV_AVAILABLE
 
         try:
             uuid = str(googleDevice.device.uuid)
@@ -482,12 +491,13 @@ class BasePlugin:
                 logoType = Parameters['Key']+'Chromecast'
                 if supportedTypes(googleDevice): logoType = Parameters['Key']+'HomeMini'
                 Domoticz.Log("Creating devices for '"+googleDevice.device.friendly_name+"' of type '"+googleDevice.device.model_name+"' in Domoticz, look in Devices tab.")
-                Domoticz.Device(Name=self.googleDevices[uuid].Name+" Status", Unit=maxUnitNo+1, Type=17, Switchtype=17, Image=Images[logoType].ID, DeviceID=uuid+DEV_STATUS, Description=googleDevice.device.model_name, Used=0).Create()
-                Domoticz.Device(Name=self.googleDevices[uuid].Name+" Volume", Unit=maxUnitNo+2, Type=244, Subtype=73, Switchtype=7, Image=8, DeviceID=uuid+DEV_VOLUME, Description=googleDevice.device.model_name, Used=0).Create()
-                Domoticz.Device(Name=self.googleDevices[uuid].Name+" Playing", Unit=maxUnitNo+3, Type=244, Subtype=73, Switchtype=7, Image=12, DeviceID=uuid+DEV_PLAYING, Description=googleDevice.device.model_name, Used=0).Create()
+                Domoticz.Device(Name=self.googleDevices[uuid].Name+" Available", Unit=maxUnitNo+1, TypeName='Switch', Image=Images[logoType].ID, DeviceID=uuid+DEV_AVAILABLE, Description=googleDevice.device.model_name, Used=0).Create()
+                Domoticz.Device(Name=self.googleDevices[uuid].Name+" Status", Unit=maxUnitNo+2, Type=17, Switchtype=17, Image=Images[logoType].ID, DeviceID=uuid+DEV_STATUS, Description=googleDevice.device.model_name, Used=0).Create()
+                Domoticz.Device(Name=self.googleDevices[uuid].Name+" Volume", Unit=maxUnitNo+3, Type=244, Subtype=73, Switchtype=7, Image=8, DeviceID=uuid+DEV_VOLUME, Description=googleDevice.device.model_name, Used=0).Create()
+                Domoticz.Device(Name=self.googleDevices[uuid].Name+" Playing", Unit=maxUnitNo+4, Type=244, Subtype=73, Switchtype=7, Image=12, DeviceID=uuid+DEV_PLAYING, Description=googleDevice.device.model_name, Used=0).Create()
                 if (googleDevice.device.model_name.find("Chromecast") >= 0):
                     Options = {"LevelActions": "", "LevelNames": "Off", "LevelOffHidden": "false", "SelectorStyle": "0"}
-                    Domoticz.Device(Name=self.googleDevices[uuid].Name+" Source",  Unit=maxUnitNo+4, TypeName="Selector Switch", Switchtype=18, Image=12, DeviceID=uuid+DEV_SOURCE, Description=googleDevice.device.model_name, Used=0, Options=Options).Create()
+                    Domoticz.Device(Name=self.googleDevices[uuid].Name+" Source",  Unit=maxUnitNo+5, TypeName="Selector Switch", Switchtype=18, Image=12, DeviceID=uuid+DEV_SOURCE, Description=googleDevice.device.model_name, Used=0, Options=Options).Create()
                 elif supportedTypes(googleDevice):
                     pass
                 else:
@@ -497,6 +507,7 @@ class BasePlugin:
             Domoticz.Error("discoveryCallback: "+str(err))
 
     def onStart(self):
+        global DEV_AVAILABLE
         if Parameters["Mode6"] != "0":
             Domoticz.Debugging(int(Parameters["Mode6"]))
             DumpConfigToLog()
@@ -508,6 +519,9 @@ class BasePlugin:
         if Parameters['Key']+'HomeMini' not in Images: Domoticz.Image('GoogleHomeMini.zip').Create()
         
         # Mark devices as timed out
+        for Unit in Devices:
+            if (Devices[Unit].DeviceID[-2:] == DEV_AVAILABLE):
+                UpdateDevice(Unit, 0, Devices[Unit].sValue, Devices[Unit].TimedOut)
         if Parameters["Mode4"] != "False":
             for Device in Devices:
                 UpdateDevice(Device, Devices[Device].nValue, Devices[Device].sValue, 1)
@@ -821,7 +835,7 @@ def UpdateDevice(Unit, nValue, sValue, TimedOut):
             Domoticz.Log("["+Devices[Unit].Name+"] Update "+str(nValue)+"("+str(Devices[Unit].nValue)+"):'"+sValue+"'("+Devices[Unit].sValue+"): "+str(TimedOut)+"("+str(Devices[Unit].TimedOut)+")")
             Devices[Unit].Update(nValue=nValue, sValue=str(sValue), TimedOut=TimedOut)
     return
-
+    
 def UpdateImage(Unit, Logo):
     if Unit in Devices and Logo in Images:
         if Devices[Unit].Image != Images[Logo].ID:
