@@ -10,7 +10,7 @@
 #         Credit where it is due!
 #
 """
-<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="1.22.0" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
+<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="2.0.1" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
     <description>
         <h2>Domoticz Google Plugin</h2><br/>
         <h3>Key Features</h3>
@@ -125,11 +125,9 @@ Apps={ 'Backdrop':Consts.APP_BACKDROP, 'Spotify':Consts.APP_SPOTIFY, 'Netflix':'
 langOverride = {}
 
 class GoogleDevice:
-    def __init__(self, IP, Port, googleDevice):
+    def __init__(self, googleDevice):
         self.Name = googleDevice.device.friendly_name
         self.Model = googleDevice.device.model_name
-        self.IP = IP
-        self.Port = Port
         self.UUID = str(googleDevice.device.uuid)
         self.GoogleDevice = googleDevice
         self.Ready = False
@@ -366,7 +364,7 @@ class GoogleDevice:
             Domotic.Log("No device state to restore after notification")
         
     def __str__(self):
-        return "'%s', Model: '%s', UUID: '%s' + IP: '%s:%s'" % (self.Name, self.Model, self.UUID, self.IP, self.Port)
+        return "'%s', Model: '%s', UUID: '%s'" % (self.Name, self.Model, self.UUID)
 
 class BasePlugin:
     
@@ -458,29 +456,29 @@ class BasePlugin:
     
     def discoveryCallback(self, googleDevice):
         global DEV_STATUS,DEV_VOLUME,DEV_PLAYING,DEV_SOURCE
-
         try:
             uuid = str(googleDevice.device.uuid)
             if (uuid in self.googleDevices):
                 # Happens for groups when 'elected leader' changes
-                self.googleDevices[uuid].LogToFile("Discovery message seen. Current address: "+self.googleDevices[uuid].IP+":"+str(self.googleDevices[uuid].Port)+", New address: "+"None"+":"+str(googleDevice.socket_client.port)) # googleDevice.host
                 self.googleDevices[uuid].GoogleDevice.disconnect()
                 self.googleDevices[uuid].GoogleDevice = None
                 del self.googleDevices[uuid]
 
-            self.googleDevices[uuid] = GoogleDevice(googleDevice.socket_client.host, googleDevice.socket_client.port, googleDevice)
-
+            self.googleDevices[uuid] = GoogleDevice(googleDevice)
+            
             createDomoticzDevice = True
             maxUnitNo = 1
             for Device in Devices:
                 if (Devices[Device].Unit > maxUnitNo): maxUnitNo = Devices[Device].Unit
                 if (Devices[Device].DeviceID.find(uuid) >= 0):
                     createDomoticzDevice = False
-                    break
+                    # Check that the device name hasn't changed
+                    if (self.googleDevices[uuid].Name != Devices[Device].Name[0:len(self.googleDevices[uuid].Name)]):
+                        Domoticz.Log("Device name mismatch: '%s' vs '%s'" % (self.googleDevices[uuid].Name,Devices[Device].Name))
 
             if (createDomoticzDevice):
                 logoType = Parameters['Key']+'Chromecast'
-                if supportedTypes(googleDevice): logoType = Parameters['Key']+'HomeMini'
+                if (googleDevice.device.model_name.find("Home") >= 0) or (googleDevice.device.model_name == "Google Cast Group"): logoType = Parameters['Key']+'HomeMini'
                 Domoticz.Log("Creating devices for '"+googleDevice.device.friendly_name+"' of type '"+googleDevice.device.model_name+"' in Domoticz, look in Devices tab.")
                 Domoticz.Device(Name=self.googleDevices[uuid].Name+" Status", Unit=maxUnitNo+1, Type=17, Switchtype=17, Image=Images[logoType].ID, DeviceID=uuid+DEV_STATUS, Description=googleDevice.device.model_name, Used=0).Create()
                 Domoticz.Device(Name=self.googleDevices[uuid].Name+" Volume", Unit=maxUnitNo+2, Type=244, Subtype=73, Switchtype=7, Image=8, DeviceID=uuid+DEV_VOLUME, Description=googleDevice.device.model_name, Used=0).Create()
@@ -488,7 +486,7 @@ class BasePlugin:
                 if (googleDevice.device.model_name.find("Chromecast") >= 0):
                     Options = {"LevelActions": "", "LevelNames": "Off", "LevelOffHidden": "false", "SelectorStyle": "0"}
                     Domoticz.Device(Name=self.googleDevices[uuid].Name+" Source",  Unit=maxUnitNo+4, TypeName="Selector Switch", Switchtype=18, Image=12, DeviceID=uuid+DEV_SOURCE, Description=googleDevice.device.model_name, Used=0, Options=Options).Create()
-                elif supportedTypes(googleDevice):
+                elif (googleDevice.device.model_name.find("Google Home") >= 0) or (googleDevice.device.model_name == "Google Cast Group"):
                     pass
                 else:
                     Domoticz.Error("Unsupported device type: "+str(self.googleDevices[uuid]))
@@ -752,9 +750,6 @@ def GetIP():
     finally:
         s.close()
     return str(IP)
-
-def supportedTypes(gDevice):
-    return (gDevice.device.model_name == "Google Cast Group") or (gDevice.device.model_name == "Google Home") or (gDevice.device.model_name == "Google Home Mini") or (gDevice.device.model_name == "Google Nest Mini")
 
 # Configuration Helpers
 def getConfigItem(Key=None, Default={}):
