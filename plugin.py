@@ -498,7 +498,6 @@ class BasePlugin:
         if Parameters["Mode6"] != "0":
             Domoticz.Debugging(int(Parameters["Mode6"]))
             DumpConfigToLog()
-            Domoticz.Debug('PyChromeCast Version: '+pychromecast.__version__ )
 
         Parameters["Mode2"] = json.loads(Parameters["Mode2"].replace('|','"'))
         
