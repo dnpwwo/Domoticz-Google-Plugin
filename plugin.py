@@ -118,7 +118,7 @@ DEV_SOURCE  = "-4"
 
 APP_NONE=0
 APP_OTHER=40
-Apps={ 'Backdrop':Consts.APP_BACKDROP, 'Spotify':Consts.APP_SPOTIFY, 'Netflix':'CA5E8412', 'Youtube':Consts.APP_YOUTUBE, 'Other':'' }
+Apps={ 'Backdrop':Consts.APP_BACKDROP, 'Spotify':'CC32E753', 'Netflix':'CA5E8412', 'Youtube':Consts.APP_YOUTUBE, 'Other':'' }
 
 # Language overrides for when Domoticz language does not line up with Google translate
 # Dictionary should contain Domoticz language string as key and language string to be used e.g {"nl":"nl-NL"}
