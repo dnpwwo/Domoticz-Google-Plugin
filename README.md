@@ -18,12 +18,12 @@ Controls multiple Google Chromecasts and Homes on your network.   Tested on Linu
 
 ## Installation
 
-Python version 3.4 or higher required & a 2019 version of Domoticz (for voice to work).  On Python 3.6.x this plugin will crash Domoticz 10-20% of the time when the plugin is stopped or restarted. This appears related to a defect introduced in Python 3.6 that has been reported on the Internet.
+Python version 3.7.3 or higher required & a 2019 version of Domoticz (for voice to work).  On Python 3.6.x this plugin will crash Domoticz 10-20% of the time when the plugin is stopped or restarted. This appears related to a defect introduced in Python 3.6 that has been reported on the Internet.
 
 To install:
 * Go in your Domoticz directory using a command line.
 * Run: ```cd plugins```
-* Run ```sudo pip3 install pychromecast``` should be version 3.2.0 or greater
+* Run ```sudo pip3 install pychromecast``` should be version 13.0.4 or greater
 * Run ```sudo pip3 install gtts```
 * Run: ```git clone https://github.com/dnpwwo/Domoticz-Google-Plugin.git```
 * Verify that ```domoticz/plugins``` contains ```plugin.py``` and 2 icon files
@@ -89,3 +89,4 @@ Nothing !
 | 1.18.37 | Bugfix: Media text not showing correctly |
 | 1.19.5 | Removed Address & Port parameters because they seemed to confuse people. Now determined internally. |
 | 1.22.0 | Support newer versions of PyChromeCast where the host is not available |
+| 2.0.2 | Support newer versions of PyChromeCast (13.0.4) and related imports |

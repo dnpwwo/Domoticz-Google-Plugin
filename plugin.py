@@ -10,7 +10,7 @@
 #         Credit where it is due!
 #
 """
-<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="2.0.1" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
+<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="2.0.2" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
     <description>
         <h2>Domoticz Google Plugin</h2><br/>
         <h3>Key Features</h3>
@@ -126,9 +126,9 @@ langOverride = {}
 
 class GoogleDevice:
     def __init__(self, googleDevice):
-        self.Name = googleDevice.device.friendly_name
-        self.Model = googleDevice.device.model_name
-        self.UUID = str(googleDevice.device.uuid)
+        self.Name = googleDevice.name
+        self.Model = googleDevice.model_name
+        self.UUID = str(googleDevice.uuid)
         self.GoogleDevice = googleDevice
         self.Ready = False
         self.Active = False
@@ -198,6 +198,7 @@ class GoogleDevice:
                 exc_type, exc_obj, exc_tb = sys.exc_info()
                 fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
                 Domoticz.Error(str(exc_type)+", "+fname+", Line: "+str(exc_tb.tb_lineno))
+                Domoticz.Error(str(status))
 
     class MediaStatusListener:
         def __init__(self, parent):
@@ -283,6 +284,7 @@ class GoogleDevice:
                 exc_type, exc_obj, exc_tb = sys.exc_info()
                 fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
                 Domoticz.Error(str(exc_type)+", "+fname+", Line: "+str(exc_tb.tb_lineno))
+                Domoticz.Error(str(status))
 
     class ConnectionListener:
         def __init__(self, parent):
@@ -404,7 +406,7 @@ class BasePlugin:
                 Domoticz.Debug("handleMessage: '"+Message["Text"]+"', to be sent to '"+Message["Target"]+"'")
                 
                 for uuid in self.googleDevices:
-                    if (self.googleDevices[uuid].GoogleDevice.device.friendly_name == Message["Target"]):
+                    if (self.googleDevices[uuid].GoogleDevice.name == Message["Target"]):
                         if (self.googleDevices[uuid].Ready):
                             language = Parameters["Language"]
                             if (language in langOverride): language = langOverride[language]
@@ -457,7 +459,7 @@ class BasePlugin:
     def discoveryCallback(self, googleDevice):
         global DEV_STATUS,DEV_VOLUME,DEV_PLAYING,DEV_SOURCE
         try:
-            uuid = str(googleDevice.device.uuid)
+            uuid = str(googleDevice.uuid)
             if (uuid in self.googleDevices):
                 # Happens for groups when 'elected leader' changes
                 self.googleDevices[uuid].GoogleDevice.disconnect()
@@ -478,22 +480,25 @@ class BasePlugin:
 
             if (createDomoticzDevice):
                 logoType = Parameters['Key']+'Chromecast'
-                if (googleDevice.device.model_name.find("Home") >= 0) or (googleDevice.device.model_name == "Google Cast Group"): logoType = Parameters['Key']+'HomeMini'
-                Domoticz.Log("Creating devices for '"+googleDevice.device.friendly_name+"' of type '"+googleDevice.device.model_name+"' in Domoticz, look in Devices tab.")
-                Domoticz.Device(Name=self.googleDevices[uuid].Name+" Status", Unit=maxUnitNo+1, Type=17, Switchtype=17, Image=Images[logoType].ID, DeviceID=uuid+DEV_STATUS, Description=googleDevice.device.model_name, Used=0).Create()
-                Domoticz.Device(Name=self.googleDevices[uuid].Name+" Volume", Unit=maxUnitNo+2, Type=244, Subtype=73, Switchtype=7, Image=8, DeviceID=uuid+DEV_VOLUME, Description=googleDevice.device.model_name, Used=0).Create()
-                Domoticz.Device(Name=self.googleDevices[uuid].Name+" Playing", Unit=maxUnitNo+3, Type=244, Subtype=73, Switchtype=7, Image=12, DeviceID=uuid+DEV_PLAYING, Description=googleDevice.device.model_name, Used=0).Create()
-                if (googleDevice.device.model_name.find("Chromecast") >= 0):
+                if (googleDevice.model_name.find("Home") >= 0) or (googleDevice.model_name == "Google Cast Group"): logoType = Parameters['Key']+'HomeMini'
+                Domoticz.Log("Creating devices for '"+googleDevice.name+"' of type '"+googleDevice.model_name+"' in Domoticz, look in Devices tab.")
+                Domoticz.Device(Name=self.googleDevices[uuid].Name+" Status", Unit=maxUnitNo+1, Type=17, Switchtype=17, Image=Images[logoType].ID, DeviceID=uuid+DEV_STATUS, Description=googleDevice.model_name, Used=0).Create()
+                Domoticz.Device(Name=self.googleDevices[uuid].Name+" Volume", Unit=maxUnitNo+2, Type=244, Subtype=73, Switchtype=7, Image=8, DeviceID=uuid+DEV_VOLUME, Description=googleDevice.model_name, Used=0).Create()
+                Domoticz.Device(Name=self.googleDevices[uuid].Name+" Playing", Unit=maxUnitNo+3, Type=244, Subtype=73, Switchtype=7, Image=12, DeviceID=uuid+DEV_PLAYING, Description=googleDevice.model_name, Used=0).Create()
+                if (googleDevice.model_name.find("Chromecast") >= 0):
                     Options = {"LevelActions": "", "LevelNames": "Off", "LevelOffHidden": "false", "SelectorStyle": "0"}
-                    Domoticz.Device(Name=self.googleDevices[uuid].Name+" Source",  Unit=maxUnitNo+4, TypeName="Selector Switch", Switchtype=18, Image=12, DeviceID=uuid+DEV_SOURCE, Description=googleDevice.device.model_name, Used=0, Options=Options).Create()
-                elif (googleDevice.device.model_name.find("Google Home") >= 0) or (googleDevice.device.model_name == "Google Cast Group"):
+                    Domoticz.Device(Name=self.googleDevices[uuid].Name+" Source",  Unit=maxUnitNo+4, TypeName="Selector Switch", Switchtype=18, Image=12, DeviceID=uuid+DEV_SOURCE, Description=googleDevice.model_name, Used=0, Options=Options).Create()
+                elif (googleDevice.Model.find("Google Home") >= 0) or (googleDevice.Model == "Google Cast Group"):
                     pass
                 else:
                     Domoticz.Error("Unsupported device type: "+str(self.googleDevices[uuid]))
                 
         except Exception as err:
             Domoticz.Error("discoveryCallback: "+str(err))
-
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+            Domoticz.Error(str(exc_type) + ": " + fname + " at " + str(exc_tb.tb_lineno))
+    
     def onStart(self):
         if Parameters["Mode6"] != "0":
             Domoticz.Debugging(int(Parameters["Mode6"]))
