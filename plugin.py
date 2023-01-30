@@ -10,7 +10,7 @@
 #         Credit where it is due!
 #
 """
-<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="2.0.2" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
+<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="2.0.3" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
     <description>
         <h2>Domoticz Google Plugin</h2><br/>
         <h3>Key Features</h3>
@@ -259,7 +259,7 @@ class GoogleDevice:
                             UpdateDevice(Unit, nValue, str(sValue), Devices[Unit].TimedOut)
 
                         elif (Devices[Unit].DeviceID.find(self.parent.UUID+DEV_PLAYING) >= 0):   # Playing
-                            if (status.duration == None):
+                            if (status.duration == None) or (status.current_time == None):
                                 sValue='0'
                             else:
                                 try:
@@ -337,7 +337,9 @@ class GoogleDevice:
                     Unit = self.PlayingUnit
                     if (Unit != None): UpdateDevice(Unit, Devices[Unit].nValue, str(sValue), Devices[Unit].TimedOut)
                 except ZeroDivisionError as Err:
-                    pass                
+                    pass
+                except TypeError as Err:
+                    pass
                 except Exception as err:
                     Domoticz.Error("UpdatePlaying: "+str(err))
                     exc_type, exc_obj, exc_tb = sys.exc_info()

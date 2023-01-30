@@ -90,3 +90,4 @@ Nothing !
 | 1.19.5 | Removed Address & Port parameters because they seemed to confuse people. Now determined internally. |
 | 1.22.0 | Support newer versions of PyChromeCast where the host is not available |
 | 2.0.2 | Support newer versions of PyChromeCast (13.0.4) and related imports |
+| 2.0.3 | Suppress occasional TypeError in UpdatePlaying function |
