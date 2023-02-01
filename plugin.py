@@ -10,7 +10,7 @@
 #         Credit where it is due!
 #
 """
-<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="2.0.3" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
+<plugin key="GoogleDevs" name="Google Devices - Chromecast and Home" author="dnpwwo" version="2.0.4" wikilink="https://github.com/dnpwwo/Domoticz-Google-Plugin" externallink="https://store.google.com/product/chromecast">
     <description>
         <h2>Domoticz Google Plugin</h2><br/>
         <h3>Key Features</h3>
@@ -490,7 +490,7 @@ class BasePlugin:
                 if (googleDevice.model_name.find("Chromecast") >= 0):
                     Options = {"LevelActions": "", "LevelNames": "Off", "LevelOffHidden": "false", "SelectorStyle": "0"}
                     Domoticz.Device(Name=self.googleDevices[uuid].Name+" Source",  Unit=maxUnitNo+4, TypeName="Selector Switch", Switchtype=18, Image=12, DeviceID=uuid+DEV_SOURCE, Description=googleDevice.model_name, Used=0, Options=Options).Create()
-                elif (googleDevice.Model.find("Google Home") >= 0) or (googleDevice.Model == "Google Cast Group"):
+                elif (googleDevice.model_name.find("Google Home") >= 0) or (googleDevice.model_name == "Google Cast Group"):
                     pass
                 else:
                     Domoticz.Error("Unsupported device type: "+str(self.googleDevices[uuid]))
