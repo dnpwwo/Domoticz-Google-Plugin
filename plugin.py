@@ -266,6 +266,8 @@ class GoogleDevice:
                                     sValue=str(int((status.adjusted_current_time / status.duration)*100))
                                 except ZeroDivisionError as Err:
                                     sValue='0'
+                                except TypeError as Err:
+                                    sValue='0'
                             if (status.player_is_playing):
                                 nValue=2
                                 if (sValue=='0'): sValue='1'
