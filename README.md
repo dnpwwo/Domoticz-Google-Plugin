@@ -90,3 +90,4 @@ Nothing !
 | 2.0.2 | Support newer versions of PyChromeCast (13.0.4) and related imports |
 | 2.0.3 | Bugfix: Suppress occasional TypeError in UpdatePlaying function |
 | 2.0.4 | Bugfix: Fix 'Model' errors during initial discovery |
+| 2.0.4 | Bugfix: Handle more 'None' values |
