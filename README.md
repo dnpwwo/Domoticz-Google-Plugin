@@ -53,8 +53,6 @@ Nothing !
 | Preferred Video/Audio Apps | Application to select when scripts request 'Video' or 'Audio' mode |
 | Voice message volume | Volume to play messages (previous level will be restored afterwards) |
 | Voice Device/Group | If specified device (or Audio Group) will receive audible notifications. The is the device's 'friendly name' as seen via the Google Home App. 'Google_Devices' will appear as a notification target when editing any Domoticz device that supports Notifications |
-| Voice message IP address | Required for voice messages, the external address of the Domoticz host |
-| Voice message port | Required for voice messages, the port to use to serve the message to the Google device(s) |
 | Time Out Lost Devices | When true, the devices in Domoitcz will have a red banner when network connectivity is lost |
 | Log to file | When true, messages from Google devices are written to Messages.log in the Plugin's directory |
 | Debug | When true the logging level will be much higher to aid with troubleshooting |
